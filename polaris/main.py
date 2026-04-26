@@ -45,16 +45,23 @@ async def receive_group_event(bot: Bot, event: GroupMessageEvent):
     if not plain_text:
         return
 
-    # await brain_instance.attention_queue.put(
-    #     {
-    #         "type": "qq_msg",
-    #         "bot_id": bot.self_id,
-    #         "group_id": event.group_id,
-    #         "user_id": event.user_id,
-    #         "content": plain_text,
-    #     }
-    # )
-    logger.debug(f"收到群聊消息并放入注意力池: {plain_text}")
+    await brain_instance.attention_queue.put(
+        {
+            "type": "qq_msg",
+            "bot_id": bot.self_id,
+            "group_id": event.group_id,
+            "target_id": event.user_id,
+            "trigger_event": plain_text,
+            "content": plain_text,
+        }
+    )
+    from polaris.brain.memory.memory import memory_service
+    await memory_service.record(
+        role=f"user_{event.user_id}",
+        content=plain_text,
+        metadata={"group_id": event.group_id, "user_id": event.user_id}
+    )
+    logger.debug(f"收到群聊消息并放入注意力池和记忆: {plain_text}")
 
 
 @private_msg.handle()
@@ -64,12 +71,19 @@ async def receive_private_event(bot: Bot, event: PrivateMessageEvent):
     if not plain_text:
         return
 
-    # await brain_instance.attention_queue.put(
-    #     {
-    #         "type": "qq_msg",
-    #         "bot_id": bot.self_id,
-    #         "user_id": event.user_id,
-    #         "content": plain_text,
-    #     }
-    # )
-    logger.debug(f"收到私聊消息并放入注意力池: {plain_text}")
+    await brain_instance.attention_queue.put(
+        {
+            "type": "qq_msg",
+            "bot_id": bot.self_id,
+            "target_id": event.user_id,
+            "trigger_event": plain_text,
+            "content": plain_text,
+        }
+    )
+    from polaris.brain.memory.memory import memory_service
+    await memory_service.record(
+        role=f"user_{event.user_id}",
+        content=plain_text,
+        metadata={"user_id": event.user_id}
+    )
+    logger.debug(f"收到私聊消息并放入注意力池和记忆: {plain_text}")

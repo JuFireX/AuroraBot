@@ -36,3 +36,5 @@ class Config:
         Config.TOOL_SERVICES.mkdir(parents=True, exist_ok=True)
         Config.MEMORY_DIR.mkdir(parents=True, exist_ok=True)
         Config.PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
+
+Config.ensure_dirs()

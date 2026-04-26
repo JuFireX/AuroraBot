@@ -24,7 +24,7 @@ async def reply_qq(agent_state: dict, args: dict):
         bot = nonebot.get_bot(bot_id)
 
         # 1. 唤起回忆上下文
-        context = await memory_service.recall(limit=15)
+        context = await memory_service.recall()
 
         # 2. 组织语言（灵魂碰撞）
         final_reply = await language_service.organize_reply(context, trigger_event)

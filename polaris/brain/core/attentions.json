@@ -1,1 +1,8 @@
-[]
+{
+  "state": {
+    "mood": "calm",
+    "energy": 100,
+    "status": "idle"
+  },
+  "events": []
+}

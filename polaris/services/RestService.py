@@ -1,16 +1,19 @@
 from polaris.utils.Logger import get_logger
 
-
 logger = get_logger("RestService")
 
 
-async def sleep():
-    logger.info(f"Bot 睡觉去了")
+async def sleep(agent_state: dict, args: dict):
+    logger.info("Bot 决定睡觉去了...")
+    # 可以更新内部状态等
+    agent_state["status"] = "sleeping"
 
 
-async def rest():
-    logger.info("Bot 休息了一会儿")
+async def rest(agent_state: dict, args: dict):
+    logger.info("Bot 决定休息一会儿...")
+    agent_state["status"] = "resting"
 
 
-async def idle():
-    logger.debug("Bot 发会儿呆")
+async def idle(agent_state: dict, args: dict):
+    logger.debug("Bot 决定发会儿呆...")
+    agent_state["status"] = "idle"
