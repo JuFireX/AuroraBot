@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # 加载环境变量
 load_dotenv(PROJECT_ROOT / ".env")
@@ -24,7 +24,3 @@ class Config:
     @staticmethod
     def ensure_dirs():
         Config.LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-
-if __name__ == "__main__":
-    Config.ensure_dirs()

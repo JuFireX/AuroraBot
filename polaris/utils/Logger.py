@@ -10,9 +10,9 @@ import logging
 
 from concurrent_log_handler import ConcurrentRotatingFileHandler
 
-from ai_chat.config import Config
+from polaris.config import Config
 
-DEFAULT_LOGFILE = Config.LOG_DIR / "jufirex.log"
+DEFAULT_LOGFILE = Config.LOG_DIR / "polaris.log"
 FORMATTER = logging.Formatter(
     "%(asctime)s [%(levelname)s] %(name)s - %(message)s", "%Y-%m-%d %H:%M:%S"
 )
@@ -112,6 +112,7 @@ def get_logger(name=None, level=Config.LOG_LEVEL, logfile=None, formatter=FORMAT
     logger.setLevel(level)
     logger.propagate = False
 
+    # 配置控制台输出
     logger.addHandler(_create_stream_handler(level, formatter))
     logger.addHandler(_create_file_handler(logfile, level, formatter))
 
@@ -119,8 +120,3 @@ def get_logger(name=None, level=Config.LOG_LEVEL, logfile=None, formatter=FORMAT
     setattr(logger, "decorate", DecoratorFactory(logger))
 
     return logger
-
-
-if __name__ == "__main__":
-    logger = get_logger()
-    logger.info("This is an info message")
