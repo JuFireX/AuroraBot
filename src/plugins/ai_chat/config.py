@@ -1,12 +1,30 @@
+from dotenv import load_dotenv
+from pathlib import Path
+import os
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+# 加载环境变量
+load_dotenv(PROJECT_ROOT / ".env")
+
+if Path(PROJECT_ROOT / ".env.dev").exists():
+    load_dotenv(PROJECT_ROOT / ".env.dev")
+
+
 class Config:
-    # DeepSeek API 配置（可替换为其他模型）
-    deepseek_api_key: str = "sk-你的API密钥"
-    deepseek_base_url: str = "https://api.deepseek.com/v1"
-    deepseek_model: str = "deepseek-chat"
+    URL_BASE: str = os.getenv("DEEPSEEK_URL_BASE", "https://api.deepseek.com")
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "sk-xxx")
+    MODEL: str = os.getenv("MODEL", "deepseek/deepseek-v4-flash")
 
-    # 群聊配置
-    ai_group_whitelist: list = []  # 空列表表示所有群都响应
-    ai_at_only: bool = True  # True=只在被@时回复，False=响应所有消息
+    # 重要目录
+    PROJECT_ROOT = PROJECT_ROOT
+    LOG_DIR = PROJECT_ROOT / "logs"
 
-    class Config:
-        extra = "ignore"
+    @staticmethod
+    def ensure_dirs():
+        Config.LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+if __name__ == "__main__":
+    Config.ensure_dirs()
