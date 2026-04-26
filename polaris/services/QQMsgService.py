@@ -9,12 +9,13 @@ logger = get_logger("QQMsgService")
 async def reply_qq(agent_state: dict, args: dict):
     """
     发送 QQ 消息的动作。
-    参数需要：bot_id, 目标(group_id 或 user_id), trigger_event (触发此回复的事件文本)
+    参数需要：bot_id, 目标(group_id 或 user_id), trigger_event (当前触发文本或主动发起的话题)
     """
     bot_id = args.get("bot_id")
     group_id = args.get("group_id")
     target_id = args.get("target_id")  # user_id
-    trigger_event = args.get("trigger_event")
+    trigger_event = args.get("trigger_event") or args.get("topic")
+    proactive = args.get("proactive", False)
 
     if not bot_id or not trigger_event:
         logger.warning(f"reply_qq 参数不足: {args}")
@@ -40,11 +41,24 @@ async def reply_qq(agent_state: dict, args: dict):
             logger.warning("未指定 target_id 或 group_id")
             return
 
+        agent_state["status"] = "chatting"
+        agent_state["social_drive"] = max(0, agent_state.get("social_drive", 0) - 12)
+        agent_state["last_social_target"] = {
+            "bot_id": bot_id,
+            "group_id": group_id,
+            "target_id": target_id,
+        }
+
         # 4. 自身发言刻入记忆
         await memory_service.record(
             role="self",
             content=final_reply,
-            metadata={"group_id": group_id, "user_id": target_id},
+            metadata={
+                "group_id": group_id,
+                "user_id": target_id,
+                "trigger_event": trigger_event,
+                "proactive": proactive,
+            },
         )
 
     except KeyError:

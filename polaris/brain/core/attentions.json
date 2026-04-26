@@ -1,8 +1,101 @@
 {
   "state": {
-    "mood": "calm",
+    "mood": "quiet",
     "energy": 100,
-    "status": "idle"
+    "status": "sleeping",
+    "social_drive": 0,
+    "last_tick_at": "2026-04-26 22:33:20",
+    "last_checked_time": "2026-04-26 22:33:08",
+    "last_social_target": {}
   },
-  "events": []
+  "attentions": [
+    {
+      "type": "clock",
+      "status": "handled",
+      "content": "现在是 2026-04-26 22:30:17",
+      "created_at": "2026-04-26 22:30:17"
+    },
+    {
+      "type": "plan_note",
+      "status": "handled",
+      "content": "都十点半了，没什么事，安静下来，准备睡觉吧。",
+      "action": "sleep",
+      "created_at": "2026-04-26 22:30:23"
+    },
+    {
+      "type": "action_result",
+      "status": "handled",
+      "content": "执行动作 sleep",
+      "action": "sleep",
+      "created_at": "2026-04-26 22:30:23"
+    },
+    {
+      "type": "plan_note",
+      "status": "handled",
+      "content": "已经躺下了，继续安心睡觉吧，明天再说。",
+      "action": "sleep",
+      "created_at": "2026-04-26 22:30:38"
+    },
+    {
+      "type": "action_result",
+      "status": "handled",
+      "content": "执行动作 sleep",
+      "action": "sleep",
+      "created_at": "2026-04-26 22:30:38"
+    },
+    {
+      "type": "clock",
+      "status": "handled",
+      "content": "现在是 2026-04-26 22:32:55",
+      "created_at": "2026-04-26 22:32:55"
+    },
+    {
+      "type": "plan_note",
+      "status": "handled",
+      "content": "嗯，已经躺下了，外面很安静，我也很平静。继续睡吧，明天再说。",
+      "action": "sleep",
+      "created_at": "2026-04-26 22:32:58"
+    },
+    {
+      "type": "action_result",
+      "status": "handled",
+      "content": "执行动作 sleep",
+      "action": "sleep",
+      "created_at": "2026-04-26 22:32:58"
+    },
+    {
+      "type": "clock",
+      "status": "handled",
+      "content": "现在是 2026-04-26 22:33:08",
+      "created_at": "2026-04-26 22:33:08"
+    },
+    {
+      "type": "plan_note",
+      "status": "handled",
+      "content": "已经十点半多了，身体很安宁，外面静悄悄的。既然已经躺下了，就继续安心睡吧，明天还有新的一天。",
+      "action": "sleep",
+      "created_at": "2026-04-26 22:33:10"
+    },
+    {
+      "type": "action_result",
+      "status": "handled",
+      "content": "执行动作 sleep",
+      "action": "sleep",
+      "created_at": "2026-04-26 22:33:10"
+    },
+    {
+      "type": "plan_note",
+      "status": "handled",
+      "content": "已经十点半多了，身体很安宁，外面静悄悄的。既然已经躺下了，就继续安心睡吧，明天还有新的一天。",
+      "action": "sleep",
+      "created_at": "2026-04-26 22:33:23"
+    },
+    {
+      "type": "action_result",
+      "status": "handled",
+      "content": "执行动作 sleep",
+      "action": "sleep",
+      "created_at": "2026-04-26 22:33:23"
+    }
+  ]
 }
