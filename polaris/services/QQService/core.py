@@ -1,13 +1,15 @@
+import json
+import asyncio
+from pathlib import Path
 from typing import Any
 
-from litellm import acompletion
 from nonebot import get_bot, on_message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageEvent
 
 from polaris.brain.core.agent import instance
-from polaris.brain.core.expander import expander_registry
 from polaris.brain.core.executor import executor_registry
 from polaris.brain.core.models import Action, TodoItem, Urgency
+from polaris.brain.model.ModelService import chat_completion, trim_text
 from polaris.config import Config
 from polaris.utils.Logger import get_logger
 
@@ -19,25 +21,33 @@ class QQService:
         self._running = False
         self._registered = False
         self._message_handler = None
-        self._original_expand = None
         self._session_responses: dict[str, str] = {}
+        self._session_contexts: dict[str, dict[str, Any]] = {}
         self._session_histories: dict[str, list[dict[str, Any]]] = {}
+        self._session_memories: dict[str, str] = {}
+        self._person_histories: dict[str, list[dict[str, Any]]] = {}
+        self._person_memories: dict[str, str] = {}
+        self._history_file = Config.QQ_DATA_DIR / "session_histories.json"
+        self._memory_file = Config.QQ_DATA_DIR / "session_memories.json"
+        self._person_history_file = Config.QQ_DATA_DIR / "person_histories.json"
+        self._person_memory_file = Config.QQ_DATA_DIR / "person_memories.json"
 
     async def start(self):
         if not self._registered:
             self._register_message_listener()
-            self._register_expander()
             self._register_executors()
             self._registered = True
 
         if self._running:
             return
 
+        self._load_persistent_state()
         self._running = True
         logger.info("[QQService] Started")
 
     def stop(self):
         self._running = False
+        self._save_persistent_state()
         logger.info("[QQService] Stopped")
 
     def _register_message_listener(self):
@@ -49,19 +59,6 @@ class QQService:
         @self._message_handler.handle()
         async def handle_message(bot: Bot, event: MessageEvent):
             await self.handle_message(bot, event)
-
-    def _register_expander(self):
-        if self._original_expand is not None:
-            return
-
-        self._original_expand = expander_registry.expand
-
-        def hooked_expand(intent: str, items: list[TodoItem]) -> list[Action]:
-            if intent.startswith("handle_qq_messages_"):
-                return self.qq_message_expander(intent, items)
-            return self._original_expand(intent, items)
-
-        expander_registry.expand = hooked_expand
 
     def _register_executors(self):
         executor_registry.register("qq_recall_memory", self.execute_qq_recall_memory)
@@ -90,53 +87,54 @@ class QQService:
             role="user",
             content=msg,
             user_id=str(event.user_id),
+            is_group=is_group,
         )
 
         todo = TodoItem(
-            type=f"handle_qq_messages_{session_id}",
+            type="read_qq_msg",
+            group_key=session_id,
             payload={
                 "session_id": session_id,
+                "group_key": session_id,
                 "message": msg,
-                "user_id": event.user_id,
-                "self_id": bot.self_id,
+                "user_id": str(event.user_id),
+                "self_id": str(bot.self_id),
                 "is_group": is_group,
                 "group_id": event.group_id if is_group else None,
             },
             urgency=Urgency.URGENT,
         )
         instance.push_todo(todo)
+        self._save_persistent_state()
         logger.info(f"[QQService] Todo queued for {session_id}")
 
-    def qq_message_expander(self, intent: str, items: list[TodoItem]) -> list[Action]:
-        del intent
-        messages = [item.payload for item in items]
-        session_id = messages[0]["session_id"]
-
-        return [
-            Action(
-                type="qq_recall_memory",
-                params={"session_id": session_id, "messages": messages},
-                energy_cost=2.0,
-            ),
-            Action(
-                type="qq_generate_response",
-                params={"session_id": session_id, "messages": messages},
-                energy_cost=15.0,
-            ),
-            Action(
-                type="qq_send_msg",
-                params={"session_id": session_id, "messages": messages},
-                energy_cost=5.0,
-            ),
-            Action(
-                type="qq_update_memory",
-                params={"session_id": session_id},
-                energy_cost=2.0,
-            ),
-        ]
-
     async def execute_qq_recall_memory(self, action: Action):
-        logger.info(f"[QQService] Recalling memory for {action.params['session_id']}")
+        session_id = action.params["session_id"]
+        messages = action.params["messages"]
+        primary_user_id = str(messages[-1]["user_id"]) if messages else "unknown"
+        history = self._session_histories.get(session_id, [])
+        person_history = self._person_histories.get(primary_user_id, [])
+        session_memory = self._session_memories.get(session_id, "")
+        person_memory = self._person_memories.get(primary_user_id, "")
+        pending_count = len(messages)
+        history_before_current = (
+            history[:-pending_count] if pending_count <= len(history) else []
+        )
+        person_history_before_current = [
+            item for item in person_history if item.get("session_id") != session_id
+        ]
+        recent_history = history_before_current[-Config.QQ_MODEL_CONTEXT_LIMIT :]
+        shared_history = person_history_before_current[-Config.QQ_MODEL_CONTEXT_LIMIT :]
+        self._session_contexts[session_id] = {
+            "recent_history": recent_history,
+            "shared_history": shared_history,
+            "session_memory": session_memory,
+            "person_memory": person_memory,
+            "primary_user_id": primary_user_id,
+        }
+        logger.info(
+            f"[QQService] Recalled memory for {session_id} with session={len(recent_history)} shared={len(shared_history)}"
+        )
 
     async def execute_qq_generate_response(self, action: Action):
         session_id = action.params["session_id"]
@@ -152,14 +150,54 @@ class QQService:
             soul_prompt = soul_path.read_text(encoding="utf-8")
 
         combined_msg = "\n".join(f"{m['user_id']}: {m['message']}" for m in messages)
-        chat_history = [
-            {"role": "system", "content": soul_prompt},
-            {"role": "user", "content": combined_msg},
-        ]
+        recalled_context = self._session_contexts.get(session_id, {})
+        person_memory = recalled_context.get("person_memory", "")
+        session_memory = recalled_context.get("session_memory", "")
+        recent_history = recalled_context.get("recent_history", [])
+        shared_history = recalled_context.get("shared_history", [])
+
+        chat_history = [{"role": "system", "content": soul_prompt}]
+        chat_history.append(
+            {
+                "role": "system",
+                "content": (
+                    f"每次回复尽量控制在{Config.QQ_REPLY_CHAR_LIMIT}字以内，只发一小段自然口语。"
+                    "除非用户明确提到，否则不要主动聊云、天空、窗外风景。"
+                ),
+            }
+        )
+        if person_memory:
+            chat_history.append(
+                {
+                    "role": "system",
+                    "content": f"这是你对这个人的共享记忆，群聊和私聊都可参考：\n{person_memory}",
+                }
+            )
+        if session_memory:
+            chat_history.append(
+                {
+                    "role": "system",
+                    "content": f"这是当前会话的局部记忆：\n{session_memory}",
+                }
+            )
+        for item in shared_history:
+            role = item.get("role", "user")
+            content = item.get("content", "")
+            if role in {"user", "assistant"} and content:
+                chat_history.append({"role": role, "content": content})
+        for item in recent_history:
+            role = item.get("role", "user")
+            content = item.get("content", "")
+            if role in {"user", "assistant"} and content:
+                chat_history.append({"role": role, "content": content})
+        chat_history.append({"role": "user", "content": combined_msg})
 
         try:
-            response = await acompletion(model=Config.MODEL, messages=chat_history)
-            reply = response.choices[0].message.content.strip()
+            response = await chat_completion(messages=chat_history)
+            reply = trim_text(
+                response.choices[0].message.content.strip(),
+                Config.QQ_REPLY_CHAR_LIMIT,
+            )
             self._session_responses[session_id] = reply
             logger.info(f"[QQService] Generated reply: {reply}")
         except Exception as e:
@@ -177,23 +215,65 @@ class QQService:
         try:
             bot = get_bot(str(messages[0]["self_id"]))
             is_group = messages[0].get("is_group", False)
+            reply_parts = self._split_reply_segments(reply)
             if is_group:
                 group_id = messages[0]["group_id"]
-                await bot.send_group_msg(group_id=group_id, message=reply)
+                for part in reply_parts:
+                    await asyncio.sleep(self._typing_delay_seconds(part))
+                    await bot.send_group_msg(group_id=group_id, message=part)
                 logger.info(f"[QQService] Sent group msg to {group_id}")
             else:
                 user_id = messages[0]["user_id"]
-                await bot.send_private_msg(user_id=user_id, message=reply)
+                for part in reply_parts:
+                    await asyncio.sleep(self._typing_delay_seconds(part))
+                    await bot.send_private_msg(user_id=user_id, message=part)
                 logger.info(f"[QQService] Sent private msg to {user_id}")
 
-            self._append_history(session_id, role="assistant", content=reply)
+            self._append_history(
+                session_id,
+                role="assistant",
+                content=reply,
+                user_id=str(messages[0]["user_id"]),
+                is_group=is_group,
+            )
+            self._save_persistent_state()
         except Exception as e:
             logger.error(f"[QQService] Failed to send msg: {e}")
 
     async def execute_qq_update_memory(self, action: Action):
         session_id = action.params["session_id"]
         logger.info(f"[QQService] Updating memory for {session_id}")
+        history = self._session_histories.get(session_id, [])
+        tail = history[-Config.QQ_HISTORY_LIMIT :]
+        summary_lines = []
+        for item in tail[-8:]:
+            speaker = item.get("role", "user")
+            content = item.get("content", "")
+            if content:
+                summary_lines.append(f"{speaker}: {content}")
+        if summary_lines:
+            session_summary = "\n".join(summary_lines)
+            self._session_memories[session_id] = trim_text(session_summary, 800)
+
+            primary_user_id = self._session_contexts.get(session_id, {}).get(
+                "primary_user_id"
+            )
+            if primary_user_id:
+                person_tail = self._person_histories.get(primary_user_id, [])
+                person_lines = []
+                for item in person_tail[-12:]:
+                    speaker = item.get("role", "user")
+                    content = item.get("content", "")
+                    if content:
+                        person_lines.append(f"{speaker}: {content}")
+                if person_lines:
+                    self._person_memories[primary_user_id] = trim_text(
+                        "\n".join(person_lines),
+                        1000,
+                    )
         self._session_responses.pop(session_id, None)
+        self._session_contexts.pop(session_id, None)
+        self._save_persistent_state()
 
     def _append_history(
         self,
@@ -201,12 +281,75 @@ class QQService:
         role: str,
         content: str,
         user_id: str | None = None,
+        is_group: bool | None = None,
     ):
         record = {"role": role, "content": content}
         if user_id is not None:
             record["user_id"] = user_id
+        if is_group is not None:
+            record["is_group"] = is_group
 
-        self._session_histories.setdefault(session_id, []).append(record)
+        history = self._session_histories.setdefault(session_id, [])
+        history.append(record)
+        if len(history) > Config.QQ_HISTORY_LIMIT:
+            self._session_histories[session_id] = history[-Config.QQ_HISTORY_LIMIT :]
+
+        if user_id is not None:
+            person_history = self._person_histories.setdefault(user_id, [])
+            person_history.append(
+                {
+                    "role": role,
+                    "content": content,
+                    "session_id": session_id,
+                    "is_group": is_group,
+                }
+            )
+            if len(person_history) > Config.QQ_HISTORY_LIMIT * 2:
+                self._person_histories[user_id] = person_history[
+                    -(Config.QQ_HISTORY_LIMIT * 2) :
+                ]
+
+    def _load_persistent_state(self):
+        self._session_histories = self._read_json(self._history_file, {})
+        self._session_memories = self._read_json(self._memory_file, {})
+        self._person_histories = self._read_json(self._person_history_file, {})
+        self._person_memories = self._read_json(self._person_memory_file, {})
+
+    def _save_persistent_state(self):
+        self._write_json(self._history_file, self._session_histories)
+        self._write_json(self._memory_file, self._session_memories)
+        self._write_json(self._person_history_file, self._person_histories)
+        self._write_json(self._person_memory_file, self._person_memories)
+
+    def _split_reply_segments(self, reply: str) -> list[str]:
+        parts = [part.strip() for part in reply.split("|")]
+        parts = [part for part in parts if part]
+        return parts or [reply]
+
+    def _typing_delay_seconds(self, text: str) -> float:
+        text_length = len(text.strip())
+        if text_length <= 0:
+            return 0.0
+        return min(1.8, max(0.25, text_length * 0.06))
+
+    def _read_json(self, file_path: Path, default: Any):
+        if not file_path.exists():
+            return default
+        try:
+            return json.loads(file_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            logger.error(f"[QQService] Failed to read {file_path.name}: {e}")
+            return default
+
+    def _write_json(self, file_path: Path, data: Any):
+        try:
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception as e:
+            logger.error(f"[QQService] Failed to write {file_path.name}: {e}")
 
 
 qq_service_instance = QQService()

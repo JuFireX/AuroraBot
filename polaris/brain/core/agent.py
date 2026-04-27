@@ -2,6 +2,7 @@ from polaris.brain.core.state import State
 from polaris.brain.core.queues import Queues
 from polaris.brain.core.engine import HeartbeatEngine
 from polaris.brain.core.models import TodoItem
+from polaris.config import Config
 
 
 class Agent:
@@ -15,7 +16,7 @@ class Agent:
         self.queues.save()
 
     async def start(self):
-        await self.engine.start(interval_seconds=1.0)
+        await self.engine.start(interval_seconds=Config.HEARTBEAT_INTERVAL_SECONDS)
 
     def stop(self):
         self.engine.stop()

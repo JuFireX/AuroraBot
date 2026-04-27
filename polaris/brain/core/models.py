@@ -30,6 +30,7 @@ class TodoItem:
     type: str
     payload: Dict[str, Any] = field(default_factory=dict)
     urgency: Urgency = Urgency.NORMAL
+    group_key: Optional[str] = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     created_at: float = field(default_factory=time.time)
     suggested_time_window: Optional[Dict[str, float]] = None
@@ -48,6 +49,7 @@ class TodoItem:
 class Plan:
     intent: str
     sub_items: List[TodoItem] = field(default_factory=list)
+    group_key: Optional[str] = None
     priority: float = 0.0
     base_priority: float = 0.0
     weight: float = 1.0
@@ -90,6 +92,7 @@ class Attention:
     plan_id: str
     intent: str
     priority: float
+    group_key: Optional[str] = None
     total_energy_estimate: float = 0.0
     action_list: List[Action] = field(default_factory=list)
     current_index: int = 0

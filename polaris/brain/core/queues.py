@@ -58,9 +58,9 @@ class PlanQueue:
         heapq.heapify(self._heap)
         return lowest
 
-    def find_by_intent(self, intent: str) -> Optional[Plan]:
+    def find_by_intent(self, intent: str, group_key: str | None = None) -> Optional[Plan]:
         for plan in self._heap:
-            if plan.intent == intent:
+            if plan.intent == intent and plan.group_key == group_key:
                 return plan
         return None
 
@@ -73,6 +73,9 @@ class PlanQueue:
 
     def size(self) -> int:
         return len(self._heap)
+
+    def items(self) -> List[Plan]:
+        return list(self._heap)
 
 
 class ActionQueue:
@@ -132,6 +135,12 @@ class Queues:
             try:
                 with open(QUEUES_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
+
+                if not isinstance(data, dict):
+                    raise ValueError("queues.json root must be an object")
+
+                if not data:
+                    return instance
 
                 if "todo_queue" in data:
                     for item_data in data["todo_queue"]:

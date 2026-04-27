@@ -8,8 +8,7 @@ from polaris.utils.Logger import get_logger
 from nonebot import get_driver
 
 from polaris.brain.core.agent import instance
-
-# from polaris.services.AlarmService.core import alarm_service_instance
+from polaris.services.AlarmService.core import alarm_service_instance
 from polaris.services.QQService.core import qq_service_instance
 
 Config.ensure_dirs()
@@ -21,8 +20,10 @@ driver = get_driver()
 async def startup_agent():
     """在 NoneBot 启动时，开启智能体的后台心跳循环"""
     await instance.start()
-    # await alarm_service_instance.start()
-    await qq_service_instance.start()
+    if Config.ENABLE_QQ_SERVICE:
+        await qq_service_instance.start()
+    if Config.ENABLE_ALARM_SERVICE:
+        await alarm_service_instance.start()
     logger.info("Bot 心跳循环与外围服务已启动")
 
 
@@ -30,6 +31,8 @@ async def startup_agent():
 async def shutdown_agent():
     """在 NoneBot 关闭时，停止智能体的后台心跳循环"""
     instance.stop()
-    # alarm_service_instance.stop()
-    qq_service_instance.stop()
+    if Config.ENABLE_ALARM_SERVICE:
+        alarm_service_instance.stop()
+    if Config.ENABLE_QQ_SERVICE:
+        qq_service_instance.stop()
     logger.info("Bot 心跳循环与外围服务已中止")

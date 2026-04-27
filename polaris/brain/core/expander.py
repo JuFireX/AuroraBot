@@ -1,4 +1,6 @@
-from typing import List, Dict, Callable
+from typing import Callable, Dict, List
+
+from polaris.config import Config
 from polaris.brain.core.models import TodoItem, Action
 from polaris.utils.Logger import get_logger
 
@@ -11,13 +13,21 @@ ExpanderFunc = Callable[[str, List[TodoItem]], List[Action]]
 class ActionExpanderRegistry:
     def __init__(self):
         self._expanders: Dict[str, ExpanderFunc] = {}
+        self._prefix_expanders: list[tuple[str, ExpanderFunc]] = []
 
     def register(self, intent: str, func: ExpanderFunc):
         self._expanders[intent] = func
 
+    def register_prefix(self, prefix: str, func: ExpanderFunc):
+        self._prefix_expanders.append((prefix, func))
+
     def expand(self, intent: str, items: List[TodoItem]) -> List[Action]:
         if intent in self._expanders:
             return self._expanders[intent](intent, items)
+
+        for prefix, func in self._prefix_expanders:
+            if intent.startswith(prefix):
+                return func(intent, items)
 
         logger.warning(
             f"No expander registered for intent: {intent}. Using default expander."
@@ -41,32 +51,69 @@ expander_registry = ActionExpanderRegistry()
 
 # M1 Default Stub Expanders
 def handle_qq_messages_expander(intent: str, items: List[TodoItem]) -> List[Action]:
+    del intent
+    session_id = items[0].group_key or items[0].payload.get("session_id", "unknown")
+    messages = [item.payload for item in items]
     return [
         Action(
-            type="recall_memory", params={"items_count": len(items)}, energy_cost=5.0
+            type="qq_recall_memory",
+            params={"session_id": session_id, "messages": messages},
+            energy_cost=Config.action_energy_cost("qq_recall_memory"),
         ),
         Action(
-            type="generate_response",
-            params={"items_count": len(items)},
-            energy_cost=15.0,
+            type="qq_generate_response",
+            params={"session_id": session_id, "messages": messages},
+            energy_cost=Config.action_energy_cost("qq_generate_response"),
         ),
-        Action(type="send_msg", params={"items_count": len(items)}, energy_cost=2.0),
-        Action(type="update_memory", params={}, energy_cost=3.0),
+        Action(
+            type="qq_send_msg",
+            params={"session_id": session_id, "messages": messages},
+            energy_cost=Config.action_energy_cost("qq_send_msg"),
+        ),
+        Action(
+            type="qq_update_memory",
+            params={"session_id": session_id},
+            energy_cost=Config.action_energy_cost("qq_update_memory"),
+        ),
     ]
 
 
 def alarm_reminder_expander(intent: str, items: List[TodoItem]) -> List[Action]:
+    del intent
+    reminder = items[0].payload if items else {}
     return [
-        Action(type="evaluate_ignore", params={}, energy_cost=1.0),
-        Action(type="alert_user", params={"items_count": len(items)}, energy_cost=5.0),
-        Action(type="finalize_alarm", params={}, energy_cost=1.0),
+        Action(
+            type="evaluate_ignore",
+            params={"alarm": reminder},
+            energy_cost=Config.action_energy_cost("evaluate_ignore"),
+        ),
+        Action(
+            type="alert_user",
+            params={"alarm": reminder, "items_count": len(items)},
+            energy_cost=Config.action_energy_cost("alert_user"),
+            preconditions=["alarm_should_alert"],
+        ),
+        Action(
+            type="finalize_alarm",
+            params={"alarm": reminder},
+            energy_cost=Config.action_energy_cost("finalize_alarm"),
+        ),
     ]
 
 
 def self_maintenance_expander(intent: str, items: List[TodoItem]) -> List[Action]:
+    del intent, items
     return [
-        Action(type="organize_memory", params={}, energy_cost=10.0),
-        Action(type="summarize", params={}, energy_cost=15.0),
+        Action(
+            type="organize_memory",
+            params={},
+            energy_cost=Config.action_energy_cost("organize_memory"),
+        ),
+        Action(
+            type="summarize",
+            params={},
+            energy_cost=Config.action_energy_cost("summarize"),
+        ),
     ]
 
 
