@@ -28,6 +28,7 @@ class Config:
 
     MEMORY_DIR = POLARIS_BRAIN / "memory"
     PROMPTS_DIR = POLARIS_BRAIN / "prompts"
+    DATA_DIR = POLARIS_BRAIN / "data"
 
     @staticmethod
     def ensure_dirs():
@@ -36,5 +37,7 @@ class Config:
         Config.TOOL_SERVICES.mkdir(parents=True, exist_ok=True)
         Config.MEMORY_DIR.mkdir(parents=True, exist_ok=True)
         Config.PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
+        Config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 
 Config.ensure_dirs()
