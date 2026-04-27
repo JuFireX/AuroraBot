@@ -141,3 +141,10 @@ dmypy.json
 # End of https://www.toptal.com/developers/gitignore/api/python
 
 logs/
+
+# IDE / Editor
+.vscode/
+.editor/
+.cursor/
+.idea/
+.trae/
