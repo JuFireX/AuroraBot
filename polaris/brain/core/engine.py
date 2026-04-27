@@ -37,13 +37,13 @@ class HeartbeatEngine:
     async def _loop(self, interval_seconds: float):
         while self._running:
             try:
-                self._tick()
+                await self._tick()
             except Exception as e:
                 logger.error(f"Error in heartbeat loop: {e}", exc_info=True)
 
             await asyncio.sleep(interval_seconds)
 
-    def _tick(self):
+    async def _tick(self):
         self.state.heartbeat_count += 1
 
         # 1. Regenerate energy
@@ -67,7 +67,7 @@ class HeartbeatEngine:
             self._attention_phase()
 
         # 4. Action phase
-        self._action_phase()
+        await self._action_phase()
 
         # 5. Persist state and queues
         self.state.save()
@@ -156,7 +156,7 @@ class HeartbeatEngine:
             f"[Attention Phase] Focus shifted to '{plan.intent}' with {len(action_list)} actions (est. energy: {total_energy})"
         )
 
-    def _action_phase(self):
+    async def _action_phase(self):
         execute_count = 0
 
         while (
@@ -187,7 +187,7 @@ class HeartbeatEngine:
 
             # Execute
             try:
-                executor_registry.execute(action)
+                await executor_registry.execute(action)
                 self.state.energy_current -= action.energy_cost
             except Exception as e:
                 logger.error(
