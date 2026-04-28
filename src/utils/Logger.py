@@ -10,7 +10,7 @@ import logging
 
 from concurrent_log_handler import ConcurrentRotatingFileHandler
 
-from polaris.config import Config
+from src.config import Config
 
 DEFAULT_LOGFILE = Config.LOG_DIR / "polaris.log"
 FORMATTER = logging.Formatter(

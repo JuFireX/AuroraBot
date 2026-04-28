@@ -1,6 +1,6 @@
 from litellm import acompletion
-from polaris.config import Config
-from polaris.utils.Logger import get_logger
+from src.config import Config
+from src.utils.Logger import get_logger
 import json
 from typing import Any
 
@@ -72,7 +72,9 @@ def clip_messages_to_limit(
     total = sum(len(msg["content"]) for msg in result)
     if total > limit and result:
         overflow = total - limit
-        result[-1]["content"] = trim_text(result[-1]["content"], max(0, len(result[-1]["content"]) - overflow))
+        result[-1]["content"] = trim_text(
+            result[-1]["content"], max(0, len(result[-1]["content"]) - overflow)
+        )
     return result
 
 

@@ -19,7 +19,7 @@ dev = [
 ]
 
 [tool.nonebot]
-plugin_dirs = ["polaris"]
+plugin_dirs = ["src"]
 builtin_plugins = ["echo"]
 
 [tool.nonebot.adapters]

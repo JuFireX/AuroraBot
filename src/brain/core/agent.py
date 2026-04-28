@@ -1,8 +1,8 @@
-from polaris.brain.core.state import State
-from polaris.brain.core.queues import Queues
-from polaris.brain.core.engine import HeartbeatEngine
-from polaris.brain.core.models import TodoItem
-from polaris.config import Config
+from src.brain.core.state import State
+from src.brain.core.queues import Queues
+from src.brain.core.engine import HeartbeatEngine
+from src.brain.core.models import TodoItem
+from src.config import Config
 
 
 class Agent:

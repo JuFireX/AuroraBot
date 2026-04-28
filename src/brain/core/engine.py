@@ -2,13 +2,13 @@ import asyncio
 import time
 from typing import Dict, List, Tuple
 
-from polaris.brain.core.executor import executor_registry
-from polaris.brain.core.expander import expander_registry
-from polaris.brain.core.models import Attention, AttentionState, Plan, TodoItem, Urgency
-from polaris.brain.core.queues import Queues
-from polaris.brain.core.state import State
-from polaris.config import Config
-from polaris.utils.Logger import get_logger
+from src.brain.core.executor import executor_registry
+from src.brain.core.expander import expander_registry
+from src.brain.core.models import Attention, AttentionState, Plan, TodoItem, Urgency
+from src.brain.core.queues import Queues
+from src.brain.core.state import State
+from src.config import Config
+from src.utils.Logger import get_logger
 
 logger = get_logger()
 
@@ -110,7 +110,9 @@ class HeartbeatEngine:
             if existing_plan and not in_attention:
                 existing_plan.sub_items.extend(group_items)
                 existing_plan.priority = max(existing_plan.priority, base_priority)
-                existing_plan.base_priority = max(existing_plan.base_priority, base_priority)
+                existing_plan.base_priority = max(
+                    existing_plan.base_priority, base_priority
+                )
                 existing_plan.last_touched_at = time.time()
                 self.queues.plan_queue.update(existing_plan)
                 logger.debug(

@@ -5,13 +5,14 @@ import time
 
 from nonebot import get_bot
 
-from polaris.brain.core.agent import instance
-from polaris.brain.core.executor import executor_registry
-from polaris.brain.core.models import TodoItem, Urgency
-from polaris.config import Config
-from polaris.utils.Logger import get_logger
+from src.brain.core.agent import instance
+from src.brain.core.executor import executor_registry
+from src.brain.core.models import TodoItem, Urgency
+from src.config import Config
+from src.utils.Logger import get_logger
 
 logger = get_logger()
+
 
 class AlarmService:
     def __init__(self):

@@ -6,12 +6,12 @@ from typing import Any
 from nonebot import get_bot, on_message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageEvent
 
-from polaris.brain.core.agent import instance
-from polaris.brain.core.executor import executor_registry
-from polaris.brain.core.models import Action, TodoItem, Urgency
-from polaris.brain.model.ModelService import chat_completion, trim_text
-from polaris.config import Config
-from polaris.utils.Logger import get_logger
+from src.brain.core.agent import instance
+from src.brain.core.executor import executor_registry
+from src.brain.core.models import Action, TodoItem, Urgency
+from src.brain.model.ModelService import chat_completion, trim_text
+from src.config import Config
+from src.utils.Logger import get_logger
 
 logger = get_logger("QQService")
 

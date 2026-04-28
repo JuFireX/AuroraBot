@@ -2,8 +2,8 @@ import heapq
 import json
 from typing import List, Optional
 from collections import deque
-from polaris.config import Config
-from polaris.brain.core.models import (
+from src.config import Config
+from src.brain.core.models import (
     TodoItem,
     Plan,
     Action,
@@ -58,7 +58,9 @@ class PlanQueue:
         heapq.heapify(self._heap)
         return lowest
 
-    def find_by_intent(self, intent: str, group_key: str | None = None) -> Optional[Plan]:
+    def find_by_intent(
+        self, intent: str, group_key: str | None = None
+    ) -> Optional[Plan]:
         for plan in self._heap:
             if plan.intent == intent and plan.group_key == group_key:
                 return plan

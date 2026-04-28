@@ -1,8 +1,8 @@
 from typing import Callable, Dict, List
 
-from polaris.config import Config
-from polaris.brain.core.models import TodoItem, Action
-from polaris.utils.Logger import get_logger
+from src.config import Config
+from src.brain.core.models import TodoItem, Action
+from src.utils.Logger import get_logger
 
 logger = get_logger()
 

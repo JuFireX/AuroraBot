@@ -1,7 +1,7 @@
 import json
 from collections import deque
 from dataclasses import asdict, dataclass, field
-from polaris.config import Config
+from src.config import Config
 
 STATE_FILE = Config.DATA_DIR / "state.json"
 
@@ -46,11 +46,15 @@ class State:
             return
 
         if self.activity_index >= self.busy_threshold:
-            self.plan_interval = 1 if backlog_size > 0 else max(1, self.base_plan_interval)
+            self.plan_interval = (
+                1 if backlog_size > 0 else max(1, self.base_plan_interval)
+            )
             return
 
         if self.is_idle_mode() and not has_active_attention:
-            self.plan_interval = max(self.base_plan_interval, self.base_plan_interval + 1)
+            self.plan_interval = max(
+                self.base_plan_interval, self.base_plan_interval + 1
+            )
             return
 
         self.plan_interval = self.base_plan_interval

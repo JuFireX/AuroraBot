@@ -1,7 +1,7 @@
 import asyncio
 from typing import Dict, Callable, Any, Awaitable
-from polaris.brain.core.models import Action
-from polaris.utils.Logger import get_logger
+from src.brain.core.models import Action
+from src.utils.Logger import get_logger
 
 logger = get_logger()
 

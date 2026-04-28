@@ -3,13 +3,13 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from polaris.config import Config
-from polaris.utils.Logger import get_logger
+from src.config import Config
+from src.utils.Logger import get_logger
 from nonebot import get_driver
 
-from polaris.brain.core.agent import instance
-from polaris.services.AlarmService.core import alarm_service_instance
-from polaris.services.QQService.core import qq_service_instance
+from src.brain.core.agent import instance
+from src.services.AlarmService.core import alarm_service_instance
+from src.services.QQService.core import qq_service_instance
 
 Config.ensure_dirs()
 logger = get_logger()
