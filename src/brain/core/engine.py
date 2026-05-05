@@ -53,3 +53,5 @@ async def tick() -> None:
 
     if queues.current_attention is not None or not queues.actions_queue.empty():
         await executor.run()
+
+    queues.persist_runtime_snapshot("heartbeat_tick")

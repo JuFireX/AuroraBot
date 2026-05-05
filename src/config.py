@@ -30,6 +30,8 @@ class Config:
     PROMPTS_DIR = SRC_ROOT / "brain" / "prompts"
     QQ_DATA_DIR = DATA_DIR / "qq"
     ALARM_DATA_DIR = DATA_DIR / "alarm"
+    QUEUES_DATA_DIR = DATA_DIR / "queues"
+    QUEUES_SNAPSHOT_FILE = QUEUES_DATA_DIR / "runtime_queues.json"
 
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     RUN_MODE: str = os.getenv("RUN_MODE", "core")
@@ -54,11 +56,15 @@ class Config:
     )
     TEST_SCENARIO: str = os.getenv("TEST_SCENARIO", "default")
     TEST_SCENARIO_LOOP: bool = _get_bool("TEST_SCENARIO_LOOP", False)
+    QUEUES_AUTOSAVE: bool = _get_bool("QUEUES_AUTOSAVE", True)
+    QUEUES_RESTORE_ON_START: bool = _get_bool("QUEUES_RESTORE_ON_START", True)
 
     URL_BASE: str = os.getenv("DEEPSEEK_URL_BASE", "https://api.deepseek.com")
     API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "sk-xxx")
     MODEL: str = os.getenv("MODEL", "deepseek/deepseek-v4-flash")
     AI_CONTEXT_CHAR_LIMIT: int = int(os.getenv("AI_CONTEXT_CHAR_LIMIT", "6000"))
+
+    MEM0_API_KEY: str = os.getenv("MEM0_API_KEY", "m0-xxx")
 
     REPLY_DEBOUNCE_SECONDS: float = float(os.getenv("REPLY_DEBOUNCE_SECONDS", "2.0"))
     RECENT_MESSAGE_LIMIT: int = int(os.getenv("RECENT_MESSAGE_LIMIT", "6"))
@@ -84,6 +90,7 @@ class Config:
             Config.PROMPTS_DIR,
             Config.QQ_DATA_DIR,
             Config.ALARM_DATA_DIR,
+            Config.QUEUES_DATA_DIR,
         ):
             path.mkdir(parents=True, exist_ok=True)
 

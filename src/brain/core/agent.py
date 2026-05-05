@@ -4,9 +4,17 @@ import asyncio
 import time
 import uuid
 
+import src.brain.core.queues as runtime_queues
 from src.brain.core import engine
 from src.brain.core.models import TodoItem, Urgency
-from src.brain.core.queues import reset_runtime_queues, todo_queue
+from src.brain.core.queues import (
+    actions_queue,
+    plans_queue,
+    persist_runtime_snapshot,
+    reset_runtime_queues,
+    restore_runtime_snapshot,
+    todo_queue,
+)
 from src.brain.core.state import bot_state
 from src.brain.core.tool_registry import Tool, clear, register
 from src.config import Config
@@ -26,13 +34,14 @@ class Agent:
         if self._task is not None and not self._task.done():
             return
 
-        reset_runtime_queues()
+        if not (Config.QUEUES_RESTORE_ON_START and restore_runtime_snapshot()):
+            reset_runtime_queues()
         bot_state.reset()
         clear()
         self._register_core_tools()
         self._stop_event = asyncio.Event()
 
-        if Config.BOOTSTRAP_DEMO_TODOS:
+        if Config.BOOTSTRAP_DEMO_TODOS and _runtime_empty():
             self.bootstrap_demo_todos()
 
         logger.info("[Agent] Starting PAA engine in mode=%s", Config.RUN_MODE)
@@ -42,6 +51,7 @@ class Agent:
         self._stop_event.set()
         if self._task is not None:
             self._task.cancel()
+        persist_runtime_snapshot("agent_stop")
         self._task = None
 
     def push_todo(self, todo: TodoItem) -> None:
@@ -89,6 +99,7 @@ class Agent:
                 created_at=now,
             )
         )
+
     def _register_core_tools(self) -> None:
         register(
             Tool(
@@ -236,7 +247,9 @@ class Agent:
 
 def _object_schema(*required_fields: str) -> dict[str, object]:
     properties = {
-        field: {"type": "string" if field != "messages" and field != "alarm" else "object"}
+        field: {
+            "type": "string" if field != "messages" and field != "alarm" else "object"
+        }
         for field in required_fields
     }
     for field, schema in properties.items():
@@ -252,3 +265,12 @@ def _object_schema(*required_fields: str) -> dict[str, object]:
 
 
 instance = Agent()
+
+
+def _runtime_empty() -> bool:
+    return (
+        todo_queue.size() == 0
+        and plans_queue.size() == 0
+        and actions_queue.size() == 0
+        and runtime_queues.current_attention is None
+    )
