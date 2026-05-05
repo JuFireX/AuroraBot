@@ -151,7 +151,7 @@ def restore_runtime_snapshot() -> bool:
         return False
 
     try:
-        payload = json.loads(file_path.read_text(encoding="utf-8"))
+        payload = json.loads(file_path.read_text(encoding="utf-8-sig"))
         queue_payload = payload.get("queues", {})
 
         restored_todos = [
