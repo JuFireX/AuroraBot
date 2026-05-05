@@ -15,6 +15,11 @@ class AttentionState(str, Enum):
     COMPLETED = "completed"
 
 
+class EpisodeStatus(str, Enum):
+    PENDING = "pending"
+    CLOSED = "closed"
+
+
 @dataclass
 class TodoItem:
     id: str
@@ -32,6 +37,7 @@ class Plan:
     sub_items: list[TodoItem]
     priority: float
     base_priority: float
+    related_episodes: list[str] = field(default_factory=list)
     weight: float = 1.0
     created_at: float = 0.0
     last_touched_at: float = 0.0
@@ -56,3 +62,15 @@ class Attention:
     current_index: int = 0
     state: AttentionState = AttentionState.ACTIVE
     created_at: float = 0.0
+
+
+@dataclass
+class Episode:
+    id: str
+    summary: str
+    participants: list[str]
+    status: EpisodeStatus = EpisodeStatus.PENDING
+    pending_on: str | None = None
+    notify: str | None = None
+    created_at: float = 0.0
+    closed_at: float | None = None

@@ -7,6 +7,7 @@ import uuid
 import src.brain.core.queues as runtime_queues
 from src.brain.core import engine
 from src.brain.core.models import TodoItem, Urgency
+from src.brain.core.session import session_buffer
 from src.brain.core.queues import (
     actions_queue,
     plans_queue,
@@ -14,6 +15,7 @@ from src.brain.core.queues import (
     restore_runtime_snapshot,
     todo_queue,
 )
+from src.brain.memory.tools import register_memory_tools
 from src.brain.core.state import bot_state
 from src.brain.core.tool_registry import Tool, clear, register
 from src.config import Config
@@ -38,6 +40,7 @@ class Agent:
         bot_state.reset()
         clear()
         self._register_core_tools()
+        register_memory_tools()
         self._stop_event = asyncio.Event()
 
         if Config.BOOTSTRAP_DEMO_TODOS and _runtime_empty():
@@ -53,6 +56,7 @@ class Agent:
         self._task = None
 
     def push_todo(self, todo: TodoItem) -> None:
+        self._capture_working_memory(todo)
         todo_queue.push(todo)
         logger.info("[Agent] Todo queued type=%s", todo.type)
 
@@ -101,14 +105,6 @@ class Agent:
     def _register_core_tools(self) -> None:
         register(
             Tool(
-                name="recall_memory",
-                description="读取当前会话的上下文摘要",
-                parameters_schema=_object_schema("session_id", "messages"),
-                handler=self._tool_recall_memory,
-            )
-        )
-        register(
-            Tool(
                 name="generate_response",
                 description="根据输入消息生成本地模拟回复",
                 parameters_schema=_object_schema("session_id", "messages"),
@@ -121,14 +117,6 @@ class Agent:
                 description="将模拟回复打印到命令行日志",
                 parameters_schema=_object_schema("session_id", "messages"),
                 handler=self._tool_send_console_message,
-            )
-        )
-        register(
-            Tool(
-                name="update_memory",
-                description="更新本地模拟记忆摘要",
-                parameters_schema=_object_schema("session_id", "messages"),
-                handler=self._tool_update_memory,
             )
         )
         register(
@@ -164,17 +152,6 @@ class Agent:
             )
         )
 
-    def _tool_recall_memory(
-        self,
-        session_id: str,
-        messages: list[dict[str, object]],
-    ) -> None:
-        logger.info(
-            "[DemoTool] recall_memory session=%s message_count=%s",
-            session_id,
-            len(messages),
-        )
-
     def _tool_generate_response(
         self,
         session_id: str,
@@ -196,17 +173,6 @@ class Agent:
             "[DemoTool] send_console_message session=%s reply=%s source_messages=%s",
             session_id,
             reply,
-            len(messages),
-        )
-
-    def _tool_update_memory(
-        self,
-        session_id: str,
-        messages: list[dict[str, object]],
-    ) -> None:
-        logger.info(
-            "[DemoTool] update_memory session=%s tracked_messages=%s",
-            session_id,
             len(messages),
         )
 
@@ -241,6 +207,16 @@ class Agent:
 
     def _tool_run_self_maintenance(self, intent: str) -> None:
         logger.info("[DemoTool] run_self_maintenance intent=%s", intent)
+
+    def _capture_working_memory(self, todo: TodoItem) -> None:
+        session_id = todo.payload.get("session_id")
+        text = todo.payload.get("text")
+        if session_id and text:
+            session_buffer.append_text(
+                session_id=str(session_id),
+                role="user",
+                content=str(text),
+            )
 
 
 def _object_schema(*required_fields: str) -> dict[str, object]:

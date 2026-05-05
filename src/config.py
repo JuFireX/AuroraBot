@@ -31,7 +31,10 @@ class Config:
     QQ_DATA_DIR = DATA_DIR / "qq"
     ALARM_DATA_DIR = DATA_DIR / "alarm"
     QUEUES_DATA_DIR = DATA_DIR / "queues"
+    MEMORY_DATA_DIR = DATA_DIR / "memory"
     QUEUES_SNAPSHOT_FILE = QUEUES_DATA_DIR / "runtime_queues.json"
+    EPISODIC_MEMORY_FILE = MEMORY_DATA_DIR / "episodes.json"
+    SEMANTIC_MEMORY_FILE = MEMORY_DATA_DIR / "semantic_memory.json"
 
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     RUN_MODE: str = os.getenv("RUN_MODE", "core")
@@ -70,6 +73,7 @@ class Config:
     MESSAGE_WINDOW: int = int(os.getenv("MESSAGE_WINDOW", "300"))
     MESSAGE_PARSE_DEBUG: bool = _get_bool("MESSAGE_PARSE_DEBUG", False)
     AI_QUERY_DEBUG: bool = _get_bool("AI_QUERY_DEBUG", False)
+    SESSION_MAX_TOKENS: int = int(os.getenv("SESSION_MAX_TOKENS", "4000"))
     QQ_MODEL_CONTEXT_LIMIT: int = int(os.getenv("QQ_MODEL_CONTEXT_LIMIT", "12"))
     QQ_REPLY_CHAR_LIMIT: int = int(os.getenv("QQ_REPLY_CHAR_LIMIT", "120"))
     QQ_HISTORY_LIMIT: int = int(os.getenv("QQ_HISTORY_LIMIT", "50"))
@@ -90,6 +94,7 @@ class Config:
             Config.QQ_DATA_DIR,
             Config.ALARM_DATA_DIR,
             Config.QUEUES_DATA_DIR,
+            Config.MEMORY_DATA_DIR,
         ):
             path.mkdir(parents=True, exist_ok=True)
 

@@ -59,8 +59,12 @@ def _expand_plan(plan: Plan) -> list[Action]:
     if plan.intent == "handle_qq_messages":
         session_id = str(plan.sub_items[0].payload.get("session_id", "demo-session"))
         messages = [item.payload for item in plan.sub_items]
+        latest_text = str(messages[-1].get("text", ""))
+        memory_user_id = str(
+            messages[-1].get("user_id", messages[-1].get("session_id", "__global__"))
+        )
         return [
-            _make_action("recall_memory", {"session_id": session_id, "messages": messages}),
+            _make_action("recall_memory", {"query": latest_text, "user_id": memory_user_id}),
             _make_action(
                 "generate_response",
                 {"session_id": session_id, "messages": messages},
@@ -69,7 +73,15 @@ def _expand_plan(plan: Plan) -> list[Action]:
                 "send_console_message",
                 {"session_id": session_id, "messages": messages},
             ),
-            _make_action("update_memory", {"session_id": session_id, "messages": messages}),
+            _make_action(
+                "store_memory",
+                {
+                    "content": " | ".join(
+                        str(message.get("text", "")) for message in messages if message.get("text")
+                    ),
+                    "user_id": memory_user_id,
+                },
+            ),
         ]
 
     if plan.intent == "handle_alarm":

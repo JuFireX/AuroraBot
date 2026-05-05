@@ -6,7 +6,15 @@ from collections import deque
 from dataclasses import asdict
 from enum import Enum
 
-from src.brain.core.models import Action, Attention, AttentionState, Plan, TodoItem, Urgency
+from src.brain.core.models import (
+    Action,
+    Attention,
+    AttentionState,
+    EpisodeStatus,
+    Plan,
+    TodoItem,
+    Urgency,
+)
 from src.config import Config
 from src.utils.Logger import get_logger
 
@@ -222,6 +230,9 @@ def _plan_from_dict(data: dict[str, object]) -> Plan:
         sub_items=sub_items,
         priority=float(data.get("priority", 0.0)),
         base_priority=float(data.get("base_priority", 0.0)),
+        related_episodes=[
+            str(item) for item in data.get("related_episodes", []) if str(item).strip()
+        ],
         weight=float(data.get("weight", 1.0)),
         created_at=float(data.get("created_at", 0.0)),
         last_touched_at=float(data.get("last_touched_at", 0.0)),
