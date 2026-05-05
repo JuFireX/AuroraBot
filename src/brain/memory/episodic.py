@@ -41,6 +41,9 @@ class EpisodeStore:
             if episode.status == EpisodeStatus.PENDING
         ]
 
+    def get_all(self) -> list[Episode]:
+        return list(self._episodes.values())
+
     def find_pending_by_participants(self, participants: list[str]) -> list[Episode]:
         participant_set = {str(item) for item in participants if str(item).strip()}
         if not participant_set:
@@ -50,6 +53,20 @@ class EpisodeStore:
             for episode in self.get_all_pending()
             if participant_set.intersection(set(episode.participants))
         ]
+
+    def find_similar_pending(
+        self,
+        summary: str,
+        participants: list[str],
+    ) -> Episode | None:
+        summary_key = _normalize_text(summary)
+        participant_set = {str(item) for item in participants if str(item).strip()}
+        for episode in self.get_all_pending():
+            if set(episode.participants) != participant_set:
+                continue
+            if _normalize_text(episode.summary) == summary_key:
+                return episode
+        return None
 
     def clear(self) -> None:
         self._episodes.clear()
@@ -100,3 +117,7 @@ class EpisodeStore:
 
 
 episode_store = EpisodeStore()
+
+
+def _normalize_text(text: str) -> str:
+    return " ".join(str(text).strip().lower().split())

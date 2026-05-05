@@ -7,6 +7,7 @@ import uuid
 import src.brain.core.queues as runtime_queues
 from src.brain.core import engine
 from src.brain.core.models import TodoItem, Urgency
+from src.brain.core.reply_store import reply_store
 from src.brain.core.session import session_buffer
 from src.brain.core.queues import (
     actions_queue,
@@ -15,7 +16,10 @@ from src.brain.core.queues import (
     restore_runtime_snapshot,
     todo_queue,
 )
+from src.brain.memory.semantic import semantic_memory
+from src.brain.memory.snapshot import memory_snapshot
 from src.brain.memory.tools import register_memory_tools
+from src.brain.model.ModelService import chat_completion, trim_text
 from src.brain.core.state import bot_state
 from src.brain.core.tool_registry import Tool, clear, register
 from src.config import Config
@@ -43,7 +47,11 @@ class Agent:
         register_memory_tools()
         self._stop_event = asyncio.Event()
 
-        if Config.BOOTSTRAP_DEMO_TODOS and _runtime_empty():
+        if (
+            Config.RUN_MODE == "core"
+            and Config.BOOTSTRAP_DEMO_TODOS
+            and _runtime_empty()
+        ):
             self.bootstrap_demo_todos()
 
         logger.info("[Agent] Starting PAA engine in mode=%s", Config.RUN_MODE)
@@ -54,6 +62,7 @@ class Agent:
         if self._task is not None:
             self._task.cancel()
         self._task = None
+        reply_store.clear()
 
     def push_todo(self, todo: TodoItem) -> None:
         self._capture_working_memory(todo)
@@ -152,29 +161,130 @@ class Agent:
             )
         )
 
-    def _tool_generate_response(
+    async def _tool_generate_response(
         self,
         session_id: str,
         messages: list[dict[str, object]],
     ) -> None:
-        latest_message = str(messages[-1].get("text", ""))
-        self._session_replies[session_id] = (
-            f"收到 {len(messages)} 条消息，当前先处理最后一条：{latest_message}"
+        latest_message = str(messages[-1].get("text", "")) if messages else ""
+        user_id = str(messages[-1].get("user_id", "__global__")) if messages else "__global__"
+        reply = await self._generate_personalized_reply(
+            session_id=session_id,
+            user_id=user_id,
+            incoming_messages=messages,
+            latest_message=latest_message,
         )
-        logger.info("[DemoTool] generate_response session=%s", session_id)
+        self._session_replies[session_id] = reply
+        reply_store.set(session_id, reply)
+        logger.info("[Agent] generate_response session=%s reply=%s", session_id, reply)
 
     def _tool_send_console_message(
         self,
         session_id: str,
         messages: list[dict[str, object]],
     ) -> None:
-        reply = self._session_replies.get(session_id, "已收到，稍后处理。")
+        reply = self._session_replies.get(session_id) or reply_store.get(session_id) or "已收到，稍后处理。"
         logger.info(
             "[DemoTool] send_console_message session=%s reply=%s source_messages=%s",
             session_id,
             reply,
             len(messages),
         )
+
+    async def _generate_personalized_reply(
+        self,
+        session_id: str,
+        user_id: str,
+        incoming_messages: list[dict[str, object]],
+        latest_message: str,
+    ) -> str:
+        soul_prompt = self._read_prompt("SOUL.md", fallback="你是小光，真实自然地回复。")
+        if memory_snapshot.should_refresh():
+            await memory_snapshot.refresh()
+
+        user_memories, global_memories = await asyncio.gather(
+            semantic_memory.search(query=latest_message, user_id=user_id),
+            semantic_memory.search(query=latest_message, user_id="__global__"),
+        )
+        recent_messages = session_buffer.get_context(session_id)[-Config.QQ_MODEL_CONTEXT_LIMIT :]
+        chat_messages: list[dict[str, object]] = [
+            {"role": "system", "content": soul_prompt},
+            {
+                "role": "system",
+                "content": (
+                    "你现在在 QQ 上回复消息。"
+                    f"回复控制在 {Config.QQ_REPLY_CHAR_LIMIT} 字以内，纯文本，不要 markdown。"
+                    "语气像熟人聊天，避免客服腔。"
+                    "如果需要分成多条消息，使用 | 分隔，最多 3 段。"
+                ),
+            },
+        ]
+
+        snapshot_text = memory_snapshot.get().strip()
+        if snapshot_text:
+            chat_messages.append(
+                {
+                    "role": "system",
+                    "content": f"这是你的长期语义记忆摘要，可按相关性自然参考：\n{trim_text(snapshot_text, 1200)}",
+                }
+            )
+        if user_memories:
+            chat_messages.append(
+                {
+                    "role": "system",
+                    "content": "这是和当前用户相关的记忆:\n" + "\n".join(f"- {item}" for item in user_memories[:5]),
+                }
+            )
+        if global_memories:
+            chat_messages.append(
+                {
+                    "role": "system",
+                    "content": "这是可参考的全局记忆:\n" + "\n".join(f"- {item}" for item in global_memories[:5]),
+                }
+            )
+
+        for item in recent_messages:
+            if item.role not in {"user", "assistant"}:
+                continue
+            chat_messages.append({"role": item.role, "content": item.content})
+
+        incoming_lines = [
+            f"{message.get('user_id', 'user')}: {message.get('text', '')}"
+            for message in incoming_messages
+            if str(message.get("text", "")).strip()
+        ]
+        if incoming_lines:
+            chat_messages.append(
+                {
+                    "role": "user",
+                    "content": "本轮待回复消息:\n" + "\n".join(incoming_lines),
+                }
+            )
+
+        try:
+            response = await chat_completion(messages=chat_messages)
+            content = str(response.choices[0].message.content or "").strip().replace("\n", " ")
+            reply = trim_text(content, Config.QQ_REPLY_CHAR_LIMIT)
+            if reply:
+                return reply
+        except Exception as exc:
+            logger.warning("[Agent] generate_response failed for session=%s: %s", session_id, exc)
+        return self._fallback_reply(latest_message)
+
+    def _fallback_reply(self, latest_message: str) -> str:
+        text = latest_message.strip()
+        if not text:
+            return "我在捏，你继续说"
+        return trim_text(f"我记住啦，{text}", Config.QQ_REPLY_CHAR_LIMIT)
+
+    def _read_prompt(self, filename: str, fallback: str) -> str:
+        path = Config.PROMPTS_DIR / filename
+        if not path.exists():
+            return fallback
+        try:
+            return path.read_text(encoding="utf-8-sig").strip() or fallback
+        except Exception:
+            return fallback
 
     def _tool_evaluate_ignore(self, alarm: dict[str, object]) -> None:
         alarm_id = str(alarm.get("id", "alarm"))

@@ -78,10 +78,18 @@ def _create_episode(
     pending_on: str | None = None,
     notify: str | None = None,
 ) -> dict[str, object]:
+    normalized_participants = [str(item) for item in participants if str(item).strip()]
+    existing = episode_store.find_similar_pending(
+        summary=summary,
+        participants=normalized_participants,
+    )
+    if existing is not None:
+        return {"episode_id": existing.id, "status": "existing"}
+
     episode = Episode(
         id=str(uuid.uuid4()),
         summary=summary,
-        participants=[str(item) for item in participants],
+        participants=normalized_participants,
         pending_on=pending_on,
         notify=notify,
         created_at=time.time(),

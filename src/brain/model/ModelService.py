@@ -1,8 +1,11 @@
+import json
+from dataclasses import dataclass
+from typing import Any
+
 from litellm import acompletion
+
 from src.config import Config
 from src.utils.Logger import get_logger
-import json
-from typing import Any
 
 logger = get_logger("ModelService")
 
@@ -10,6 +13,12 @@ SYSTEM_PROMPT_FORMAT = (
     "按照指定Format回答Query. 请务必输出纯JSON格式, 不要包含任何 markdown 标记"
 )
 MAX_TRIAL = 3
+
+
+@dataclass
+class LLMToolCall:
+    name: str
+    arguments: dict[str, Any]
 
 
 def trim_text(text: str, limit: int) -> str:
@@ -80,9 +89,37 @@ def clip_messages_to_limit(
 
 async def chat_completion(
     messages: list[dict[str, Any]], total_limit: int | None = None, **kwargs: Any
-):
+) -> Any:
     clipped_messages = clip_messages_to_limit(messages, total_limit)
     return await acompletion(model=Config.MODEL, messages=clipped_messages, **kwargs)
+
+
+async def llm_call(
+    system: str,
+    tools: list[dict[str, Any]],
+    message: str,
+) -> list[LLMToolCall]:
+    openai_tools = [_adapt_tool_schema(tool) for tool in tools]
+    response = await chat_completion(
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": message},
+        ],
+        tools=openai_tools,
+        tool_choice="auto",
+    )
+
+    tool_calls = _extract_tool_calls(response)
+    if tool_calls:
+        return tool_calls
+
+    content = str(getattr(response.choices[0].message, "content", "") or "").strip()
+    content = _adapt_possible_json(content)
+    parsed_calls = _parse_calls_from_content(content)
+    if parsed_calls:
+        return parsed_calls
+
+    raise ValueError("LLM 未返回可解析的 tool calls")
 
 
 async def get_format_response(query: str, format: str) -> dict:
@@ -116,3 +153,95 @@ def _adapt_possible_json(content: str) -> str:
     elif content.startswith("```JSON"):
         content = content.replace("```JSON", "").replace("```", "").strip()
     return content
+
+
+def _adapt_tool_schema(tool: dict[str, Any]) -> dict[str, Any]:
+    if tool.get("type") == "function":
+        return tool
+    return {
+        "type": "function",
+        "function": {
+            "name": str(tool.get("name", "")),
+            "description": str(tool.get("description", "")),
+            "parameters": tool.get("parameters", {"type": "object", "properties": {}}),
+        },
+    }
+
+
+def _extract_tool_calls(response: Any) -> list[LLMToolCall]:
+    message = response.choices[0].message
+    raw_tool_calls = getattr(message, "tool_calls", None) or []
+    parsed: list[LLMToolCall] = []
+    for tool_call in raw_tool_calls:
+        function = getattr(tool_call, "function", None)
+        if function is None and isinstance(tool_call, dict):
+            function = tool_call.get("function")
+        name = _pick_attr(function, "name")
+        arguments_raw = _pick_attr(function, "arguments")
+        if not name:
+            continue
+        parsed.append(
+            LLMToolCall(
+                name=str(name),
+                arguments=_parse_arguments(arguments_raw),
+            )
+        )
+    return parsed
+
+
+def _parse_calls_from_content(content: str) -> list[LLMToolCall]:
+    if not content:
+        return []
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError:
+        logger.warning("[ModelService] LLM 返回非 JSON 内容: %s", content)
+        return []
+
+    raw_calls: list[dict[str, Any]] = []
+    if isinstance(payload, list):
+        raw_calls = [item for item in payload if isinstance(item, dict)]
+    elif isinstance(payload, dict):
+        if isinstance(payload.get("tool_calls"), list):
+            raw_calls = [item for item in payload["tool_calls"] if isinstance(item, dict)]
+        elif payload.get("name"):
+            raw_calls = [payload]
+
+    parsed: list[LLMToolCall] = []
+    for item in raw_calls:
+        name = str(item.get("name", "") or item.get("tool_name", ""))
+        if not name:
+            continue
+        parsed.append(
+            LLMToolCall(
+                name=name,
+                arguments=_parse_arguments(item.get("arguments", item.get("params", {}))),
+            )
+        )
+    return parsed
+
+
+def _pick_attr(obj: Any, name: str) -> Any:
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return obj.get(name)
+    return getattr(obj, name, None)
+
+
+def _parse_arguments(raw_arguments: Any) -> dict[str, Any]:
+    if raw_arguments is None:
+        return {}
+    if isinstance(raw_arguments, dict):
+        return raw_arguments
+    if isinstance(raw_arguments, str):
+        try:
+            parsed = json.loads(raw_arguments)
+            return parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            logger.warning(
+                "[ModelService] Tool arguments 不是合法 JSON，已降级为空对象: %s",
+                raw_arguments,
+            )
+            return {}
+    return {}
