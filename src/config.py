@@ -56,7 +56,6 @@ class Config:
     )
     TEST_SCENARIO: str = os.getenv("TEST_SCENARIO", "default")
     TEST_SCENARIO_LOOP: bool = _get_bool("TEST_SCENARIO_LOOP", False)
-    QUEUES_AUTOSAVE: bool = _get_bool("QUEUES_AUTOSAVE", True)
     QUEUES_RESTORE_ON_START: bool = _get_bool("QUEUES_RESTORE_ON_START", True)
 
     URL_BASE: str = os.getenv("DEEPSEEK_URL_BASE", "https://api.deepseek.com")

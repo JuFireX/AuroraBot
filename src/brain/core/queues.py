@@ -19,12 +19,10 @@ class TodoQueue:
 
     def push(self, item: TodoItem) -> None:
         self._q.append(item)
-        _autosave()
 
     def drain(self) -> list[TodoItem]:
         items = list(self._q)
         self._q.clear()
-        _autosave()
         return items
 
     def empty(self) -> bool:
@@ -35,11 +33,9 @@ class TodoQueue:
 
     def clear(self) -> None:
         self._q.clear()
-        _autosave()
 
     def replace(self, items: list[TodoItem]) -> None:
         self._q = deque(items)
-        _autosave()
 
     def iter_all(self) -> list[TodoItem]:
         return list(self._q)
@@ -52,21 +48,15 @@ class PlansQueue:
     def push(self, plan: Plan) -> None:
         self._plans.append(plan)
         self._plans.sort(key=lambda item: item.priority, reverse=True)
-        _autosave()
 
     def pop_highest(self) -> Plan | None:
-        result = self._plans.pop(0) if self._plans else None
-        _autosave()
-        return result
+        return self._plans.pop(0) if self._plans else None
 
     def pop_lowest(self) -> Plan | None:
-        result = self._plans.pop(-1) if self._plans else None
-        _autosave()
-        return result
+        return self._plans.pop(-1) if self._plans else None
 
     def remove(self, plan_id: str) -> None:
         self._plans = [plan for plan in self._plans if plan.id != plan_id]
-        _autosave()
 
     def empty(self) -> bool:
         return not self._plans
@@ -79,12 +69,10 @@ class PlansQueue:
 
     def clear(self) -> None:
         self._plans.clear()
-        _autosave()
 
     def replace(self, plans: list[Plan]) -> None:
         self._plans = plans
         self._plans.sort(key=lambda item: item.priority, reverse=True)
-        _autosave()
 
 
 class ActionsQueue:
@@ -93,19 +81,15 @@ class ActionsQueue:
 
     def push_all(self, actions: list[Action]) -> None:
         self._q.extend(actions)
-        _autosave()
 
     def peek(self) -> Action | None:
         return self._q[0] if self._q else None
 
     def pop(self) -> Action | None:
-        result = self._q.popleft() if self._q else None
-        _autosave()
-        return result
+        return self._q.popleft() if self._q else None
 
     def clear(self) -> None:
         self._q.clear()
-        _autosave()
 
     def empty(self) -> bool:
         return not self._q
@@ -115,7 +99,6 @@ class ActionsQueue:
 
     def replace(self, actions: list[Action]) -> None:
         self._q = deque(actions)
-        _autosave()
 
     def iter_all(self) -> list[Action]:
         return list(self._q)
@@ -130,7 +113,6 @@ current_attention: Attention | None = None
 def set_current_attention(attention: Attention | None) -> None:
     global current_attention
     current_attention = attention
-    _autosave()
 
 
 def clear_current_attention() -> None:
@@ -142,12 +124,11 @@ def reset_runtime_queues() -> None:
     todo_queue.clear()
     plans_queue.clear()
     actions_queue.clear()
-    persist_runtime_snapshot("reset")
 
 
 def persist_runtime_snapshot(reason: str = "manual") -> None:
     snapshot = {
-        "version": "2.1",
+        "version": "3.0",
         "updated_at": time.time(),
         "reason": reason,
         "queues": {
@@ -172,15 +153,29 @@ def restore_runtime_snapshot() -> bool:
     try:
         payload = json.loads(file_path.read_text(encoding="utf-8"))
         queue_payload = payload.get("queues", {})
-        todo_queue.replace([_todo_from_dict(item) for item in queue_payload.get("todo", [])])
-        plans_queue.replace([_plan_from_dict(item) for item in queue_payload.get("plans", [])])
-        actions_queue.replace(
-            [_action_from_dict(item) for item in queue_payload.get("actions", [])]
-        )
+
+        restored_todos = [
+            _todo_from_dict(item) for item in queue_payload.get("todo", []) if isinstance(item, dict)
+        ]
+        restored_plans = [
+            _plan_from_dict(item) for item in queue_payload.get("plans", []) if isinstance(item, dict)
+        ]
+        restored_actions = [
+            _action_from_dict(item)
+            for item in queue_payload.get("actions", [])
+            if isinstance(item, dict)
+        ]
         attention_data = queue_payload.get("attention")
-        set_current_attention(
+        restored_attention = (
             _attention_from_dict(attention_data) if isinstance(attention_data, dict) else None
         )
+
+        _validate_runtime_consistency(restored_actions, restored_attention)
+
+        todo_queue.replace(restored_todos)
+        plans_queue.replace(restored_plans)
+        actions_queue.replace(restored_actions)
+        set_current_attention(restored_attention)
         logger.info(
             "[Queues] Restored snapshot todo=%s plans=%s actions=%s attention=%s",
             todo_queue.size(),
@@ -192,11 +187,6 @@ def restore_runtime_snapshot() -> bool:
     except Exception as exc:
         logger.error("[Queues] Failed to restore snapshot: %s", exc)
         return False
-
-
-def _autosave() -> None:
-    if Config.QUEUES_AUTOSAVE:
-        persist_runtime_snapshot("autosave")
 
 
 def _to_json_ready(value: object) -> object:
@@ -260,3 +250,27 @@ def _attention_from_dict(data: dict[str, object]) -> Attention:
         state=AttentionState(str(data.get("state", AttentionState.ACTIVE.value))),
         created_at=float(data.get("created_at", 0.0)),
     )
+
+
+def _validate_runtime_consistency(
+    actions: list[Action],
+    attention: Attention | None,
+) -> None:
+    if attention is None:
+        if actions:
+            raise ValueError("snapshot contains actions without current attention")
+        return
+
+    if attention.state == AttentionState.COMPLETED:
+        raise ValueError("snapshot contains completed attention")
+    if attention.action_count <= 0:
+        raise ValueError("attention.action_count must be positive")
+    if attention.current_index < 0 or attention.current_index >= attention.action_count:
+        raise ValueError("attention.current_index is out of range")
+
+    remaining_actions = attention.action_count - attention.current_index
+    if len(actions) != remaining_actions:
+        raise ValueError(
+            "attention progress mismatch: remaining_actions=%s actual_actions=%s"
+            % (remaining_actions, len(actions))
+        )

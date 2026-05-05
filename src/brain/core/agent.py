@@ -10,7 +10,6 @@ from src.brain.core.models import TodoItem, Urgency
 from src.brain.core.queues import (
     actions_queue,
     plans_queue,
-    persist_runtime_snapshot,
     reset_runtime_queues,
     restore_runtime_snapshot,
     todo_queue,
@@ -51,7 +50,6 @@ class Agent:
         self._stop_event.set()
         if self._task is not None:
             self._task.cancel()
-        persist_runtime_snapshot("agent_stop")
         self._task = None
 
     def push_todo(self, todo: TodoItem) -> None:
