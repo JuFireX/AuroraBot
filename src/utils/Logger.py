@@ -7,12 +7,16 @@
 import functools
 import inspect
 import logging
+from logging.handlers import RotatingFileHandler
 
-from concurrent_log_handler import ConcurrentRotatingFileHandler
+try:
+    from concurrent_log_handler import ConcurrentRotatingFileHandler
+except ModuleNotFoundError:
+    ConcurrentRotatingFileHandler = RotatingFileHandler
 
 from src.config import Config
 
-DEFAULT_LOGFILE = Config.LOG_DIR / "polaris.log"
+DEFAULT_LOGFILE = Config.LOG_DIR / "aurora.log"
 FORMATTER = logging.Formatter(
     "%(asctime)s [%(levelname)s] %(name)s - %(message)s", "%Y-%m-%d %H:%M:%S"
 )
