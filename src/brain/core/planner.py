@@ -99,6 +99,7 @@ def _type_to_intent(item_type: str) -> str:
         "qq_msg": "handle_qq_messages",
         "read_qq_msg": "handle_qq_messages",
         "alarm_reminder": "handle_alarm",
+        "diary_prompt": "write_diary",
         "system_task": "self_maintenance",
     }
     return mapping.get(item_type, item_type)
@@ -108,6 +109,7 @@ def _base_priority(intent: str) -> float:
     mapping = {
         "handle_qq_messages": 50.0,
         "handle_alarm": 20.0,
+        "write_diary": 8.0,
         "self_maintenance": 5.0,
     }
     return mapping.get(intent, 10.0)

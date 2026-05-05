@@ -52,6 +52,12 @@ async def _start_optional_services() -> None:
         await alarm_service_instance.start()
         _running_services.append(alarm_service_instance)
 
+    if Config.RUN_MODE == "prod" and Config.ENABLE_DIARY_SERVICE:
+        from src.services.DiaryService.core import diary_service_instance
+
+        await diary_service_instance.start()
+        _running_services.append(diary_service_instance)
+
     if Config.RUN_MODE == "test" and Config.ENABLE_TEST_SERVICE:
         from src.services.TestService.core import test_service_instance
 

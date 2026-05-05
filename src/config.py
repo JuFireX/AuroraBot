@@ -30,11 +30,13 @@ class Config:
     PROMPTS_DIR = SRC_ROOT / "brain" / "prompts"
     QQ_DATA_DIR = DATA_DIR / "qq"
     ALARM_DATA_DIR = DATA_DIR / "alarm"
+    DIARY_DATA_DIR = DATA_DIR / "diary"
     QUEUES_DATA_DIR = DATA_DIR / "queues"
     MEMORY_DATA_DIR = DATA_DIR / "memory"
     QUEUES_SNAPSHOT_FILE = QUEUES_DATA_DIR / "runtime_queues.json"
     EPISODIC_MEMORY_FILE = MEMORY_DATA_DIR / "episodes.json"
     SEMANTIC_MEMORY_FILE = MEMORY_DATA_DIR / "semantic_memory.json"
+    SEMANTIC_SNAPSHOT_FILE = MEMORY_DATA_DIR / "semantic_snapshot.txt"
 
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     RUN_MODE: str = os.getenv("RUN_MODE", "core")
@@ -67,6 +69,8 @@ class Config:
     AI_CONTEXT_CHAR_LIMIT: int = int(os.getenv("AI_CONTEXT_CHAR_LIMIT", "6000"))
 
     MEM0_API_KEY: str = os.getenv("MEM0_API_KEY", "m0-xxx")
+    MEM0_API_BASE_URL: str = os.getenv("MEM0_API_BASE_URL", "https://api.mem0.ai")
+    ENABLE_DIARY_SERVICE: bool = _get_bool("ENABLE_DIARY_SERVICE", False)
 
     REPLY_DEBOUNCE_SECONDS: float = float(os.getenv("REPLY_DEBOUNCE_SECONDS", "2.0"))
     RECENT_MESSAGE_LIMIT: int = int(os.getenv("RECENT_MESSAGE_LIMIT", "6"))
@@ -83,6 +87,10 @@ class Config:
     ALARM_DEFAULT_INTERVAL_SECONDS: int = int(
         os.getenv("ALARM_DEFAULT_INTERVAL_SECONDS", "1800")
     )
+    DIARY_TIME: str = os.getenv("DIARY_TIME", "22:00")
+    SNAPSHOT_REFRESH_INTERVAL: int = int(
+        os.getenv("SNAPSHOT_REFRESH_INTERVAL", "86400")
+    )
 
     @staticmethod
     def ensure_dirs() -> None:
@@ -93,6 +101,7 @@ class Config:
             Config.PROMPTS_DIR,
             Config.QQ_DATA_DIR,
             Config.ALARM_DATA_DIR,
+            Config.DIARY_DATA_DIR,
             Config.QUEUES_DATA_DIR,
             Config.MEMORY_DATA_DIR,
         ):

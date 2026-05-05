@@ -92,6 +92,29 @@ def _expand_plan(plan: Plan) -> list[Action]:
             _make_action("finalize_alarm", {"alarm": alarm}),
         ]
 
+    if plan.intent == "write_diary":
+        diary_payload = plan.sub_items[0].payload if plan.sub_items else {}
+        summary = str(diary_payload.get("summary", diary_payload.get("message", "记录今天的经历")))
+        date = str(diary_payload.get("date", time.strftime("%Y-%m-%d")))
+        return [
+            _make_action(
+                "recall_memory",
+                {
+                    "query": "人际关系与近期重要事件",
+                    "user_id": "__global__",
+                },
+            ),
+            _make_action(
+                "write_diary",
+                {
+                    "date": date,
+                    "summary": summary,
+                    "interactions": list(diary_payload.get("interactions", [])),
+                    "reflections": str(diary_payload.get("reflections", "")),
+                },
+            ),
+        ]
+
     return [_make_action("run_self_maintenance", {"intent": plan.intent})]
 
 
