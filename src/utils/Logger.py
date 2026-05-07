@@ -14,25 +14,37 @@ try:
 except ModuleNotFoundError:
     ConcurrentRotatingFileHandler = RotatingFileHandler
 
-from src.config import Config
-
-DEFAULT_LOGFILE = Config.LOG_DIR / "aurora.log"
-FORMATTER = logging.Formatter(
-    "%(asctime)s [%(levelname)s] %(name)s - %(message)s", "%Y-%m-%d %H:%M:%S"
-)
+try:
+    from src.config import Config
+except ImportError:
+    Config = None
 
 
-def _create_stream_handler(level=Config.LOG_LEVEL, formatter=FORMATTER):
+DEFAULT_LOGFILE_NAME = "aurora.log"
+FORMATTER_FORMAT = "%(asctime)s [%(levelname)s] %(name)s - %(message)s"
+MAX_LOGFILE_SIZE = 102400  # 100KB
+MAX_LOGFILE_BACKUPS = 5  # 保留5个备份
+
+
+LOG_LEVEL = Config.LOG_LEVEL if Config is not None else logging.INFO
+DEFAULT_LOGFILE = Config.LOG_DIR / DEFAULT_LOGFILE_NAME if Config is not None else None
+FORMATTER = logging.Formatter(FORMATTER_FORMAT, "%Y-%m-%d %H:%M:%S")
+
+
+def _create_stream_handler(level=LOG_LEVEL, formatter=FORMATTER):
     sh = logging.StreamHandler()
     sh.setLevel(level)
     sh.setFormatter(formatter)
     return sh
 
 
-def _create_file_handler(logfile, level=Config.LOG_LEVEL, formatter=FORMATTER):
+def _create_file_handler(logfile, level=LOG_LEVEL, formatter=FORMATTER):
     # 使用大小轮转日志文件, 每个文件最大100KB, 保留5个备份
     fh = ConcurrentRotatingFileHandler(
-        logfile, maxBytes=102400, backupCount=5, encoding="utf-8"
+        logfile,
+        maxBytes=MAX_LOGFILE_SIZE,
+        backupCount=MAX_LOGFILE_BACKUPS,
+        encoding="utf-8",
     )
     fh.setLevel(level)
     fh.setFormatter(formatter)
@@ -91,7 +103,7 @@ class DecoratorFactory:
         return self._create_decorator(logging.ERROR, message_template)
 
 
-def get_logger(name=None, level=Config.LOG_LEVEL, logfile=None, formatter=FORMATTER):
+def get_logger(name=None, level=LOG_LEVEL, logfile=None, formatter=FORMATTER):
     """
     返回配置好的日志记录器
     - name: 日志记录器名称 (默认根记录器) .
@@ -118,6 +130,8 @@ def get_logger(name=None, level=Config.LOG_LEVEL, logfile=None, formatter=FORMAT
 
     # 配置控制台输出
     logger.addHandler(_create_stream_handler(level, formatter))
+
+    # 配置文件输出
     logger.addHandler(_create_file_handler(logfile, level, formatter))
 
     # 将 DecoratorFactory 实例绑定到记录器, 用于创建日志装饰器

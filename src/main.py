@@ -48,7 +48,7 @@ async def startup_agent() -> None:
 
     _stop_event = asyncio.Event()
     _engine_task = asyncio.create_task(engine.run_loop(_stop_event))
-    logger.info("PAA engine started")
+    logger.info("PAA 内核已启动")
 
 
 @driver.on_shutdown
@@ -63,4 +63,4 @@ async def shutdown_agent() -> None:
             await _engine_task
     _engine_task = None
     await app_host.stop_all()
-    logger.info("PAA engine stopped")
+    logger.info("PAA 内核已停止")
