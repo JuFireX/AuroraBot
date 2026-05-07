@@ -36,13 +36,8 @@ class EpisodeStore:
 
     def get_all_pending(self) -> list[Episode]:
         return [
-            episode
-            for episode in self._episodes.values()
-            if episode.status == EpisodeStatus.PENDING
+            episode for episode in self._episodes.values() if episode.status == EpisodeStatus.PENDING
         ]
-
-    def get_all(self) -> list[Episode]:
-        return list(self._episodes.values())
 
     def find_pending_by_participants(self, participants: list[str]) -> list[Episode]:
         participant_set = {str(item) for item in participants if str(item).strip()}
@@ -54,11 +49,7 @@ class EpisodeStore:
             if participant_set.intersection(set(episode.participants))
         ]
 
-    def find_similar_pending(
-        self,
-        summary: str,
-        participants: list[str],
-    ) -> Episode | None:
+    def find_similar_pending(self, summary: str, participants: list[str]) -> Episode | None:
         summary_key = _normalize_text(summary)
         participant_set = {str(item) for item in participants if str(item).strip()}
         for episode in self.get_all_pending():
@@ -78,27 +69,16 @@ class EpisodeStore:
         try:
             payload = json.loads(self.file_path.read_text(encoding="utf-8-sig"))
             for item in payload.get("episodes", []):
+                if not isinstance(item, dict):
+                    continue
                 episode = Episode(
                     id=str(item.get("id", "")),
                     summary=str(item.get("summary", "")),
-                    participants=[str(p) for p in item.get("participants", [])],
+                    participants=[str(participant) for participant in item.get("participants", [])],
                     status=EpisodeStatus(str(item.get("status", EpisodeStatus.PENDING.value))),
-                    pending_on=(
-                        str(item.get("pending_on"))
-                        if item.get("pending_on") is not None
-                        else None
-                    ),
-                    notify=(
-                        str(item.get("notify"))
-                        if item.get("notify") is not None
-                        else None
-                    ),
+                    pending_on=str(item.get("pending_on")) if item.get("pending_on") is not None else None,
                     created_at=float(item.get("created_at", 0.0)),
-                    closed_at=(
-                        float(item.get("closed_at"))
-                        if item.get("closed_at") is not None
-                        else None
-                    ),
+                    closed_at=float(item.get("closed_at")) if item.get("closed_at") is not None else None,
                 )
                 self._episodes[episode.id] = episode
         except Exception:

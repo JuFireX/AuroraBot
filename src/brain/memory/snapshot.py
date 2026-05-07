@@ -13,6 +13,7 @@ class SemanticSnapshot:
     def __init__(self) -> None:
         self._cache = ""
         self._updated_at = 0.0
+        self._last_refresh_started_at = 0.0
         self._load()
 
     def get(self) -> str:
@@ -23,17 +24,26 @@ class SemanticSnapshot:
             return True
         return (time.time() - self._updated_at) >= Config.SNAPSHOT_REFRESH_INTERVAL
 
-    async def refresh(self) -> str:
+    async def refresh(self, force: bool = False) -> str:
+        now = time.time()
+        if (
+            not force
+            and self._last_refresh_started_at > 0
+            and (now - self._last_refresh_started_at) < Config.SNAPSHOT_REFRESH_DEBOUNCE_SECONDS
+        ):
+            return self._cache
+
+        self._last_refresh_started_at = now
         memories = await semantic_memory.get_all(user_id="__global__")
-        lines = ["语义记忆快照："]
+        lines = ["## Semantic snapshot"]
         for item in memories[:20]:
             memory = str(item.get("memory", item.get("content", ""))).strip()
             if memory:
                 lines.append(f"- {memory}")
-        self._cache = "\n".join(lines) if len(lines) > 1 else "语义记忆快照：暂无内容"
+        self._cache = "\n".join(lines) if len(lines) > 1 else "## Semantic snapshot\n- empty"
         self._updated_at = time.time()
         Config.SEMANTIC_SNAPSHOT_FILE.write_text(self._cache, encoding="utf-8")
-        logger.info("[SemanticSnapshot] Refreshed snapshot with %s entries", len(memories))
+        logger.info("Snapshot refreshed with %s entries", len(memories))
         return self._cache
 
     def _load(self) -> None:

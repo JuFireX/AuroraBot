@@ -1,0 +1,34 @@
+package: im.polaris.alarm
+name: 提醒
+version: 1.0.0
+brain_version: ">=4.1.0"
+persona_hint: >-
+  通过这个应用，你可以创建提醒和日记提示。它们触发后会变成待处理意图，
+  再由 brain 判断如何处置。
+capabilities:
+  - alarm.schedule
+tools:
+  - name: set_alarm
+    description: 设置一个会在未来触发的提醒。
+    parameters:
+      message:
+        type: string
+        description: 提醒内容
+        required: true
+      interval_seconds:
+        type: number
+        description: 距离当前时间的秒数
+        required: false
+      alarm_type:
+        type: string
+        description: 提醒类型，例如 generic 或 diary_prompt
+        required: false
+    returns:
+      alarm_id:
+        type: string
+        description: 提醒 ID
+      status:
+        type: string
+        description: 创建结果
+    side_effects:
+      - 会将提醒状态写入本地存储

@@ -1,74 +1,56 @@
 from __future__ import annotations
 
+import time
 from collections import deque
 from dataclasses import dataclass, field
 
-from src.config import Config
 
-
-@dataclass
+@dataclass(slots=True)
 class BotState:
-    energy_current: float = Config.ENERGY_MAX
-    energy_max: float = Config.ENERGY_MAX
-    energy_regen_per_beat: float = Config.ENERGY_REGEN_PER_BEAT
-    cognitive_load: float = 0.0
-    plan_interval: int = Config.BASE_PLAN_INTERVAL
-    base_plan_interval: int = Config.BASE_PLAN_INTERVAL
-    idle_counter: int = 0
     heartbeat_count: int = 0
-    busy_threshold: float = Config.BUSY_THRESHOLD
-    idle_heartbeats_threshold: int = Config.IDLE_HEARTBEATS_THRESHOLD
-    recent_activity: deque[bool] = field(default_factory=lambda: deque(maxlen=10))
+    _recent_activity: deque[int] = field(default_factory=lambda: deque(maxlen=20))
+    _event_intervals: deque[float] = field(default_factory=lambda: deque(maxlen=10))
+    _last_event_at: float = 0.0
 
     def reset(self) -> None:
-        self.energy_current = self.energy_max
-        self.cognitive_load = 0.0
-        self.plan_interval = self.base_plan_interval
-        self.idle_counter = 0
         self.heartbeat_count = 0
-        self.recent_activity.clear()
+        self._recent_activity.clear()
+        self._event_intervals.clear()
+        self._last_event_at = 0.0
 
-    def regenerate_energy(self) -> None:
-        self.energy_current = min(
-            self.energy_max,
-            self.energy_current + self.energy_regen_per_beat,
-        )
+    def record_tick(self, had_events: bool) -> None:
+        self._recent_activity.append(1 if had_events else 0)
+        if had_events:
+            now = time.time()
+            if self._last_event_at > 0:
+                self._event_intervals.append(now - self._last_event_at)
+            self._last_event_at = now
 
-    def has_energy(self, cost: float) -> bool:
-        return self.energy_current >= cost
-
-    def consume_energy(self, cost: float) -> None:
-        self.energy_current = max(0.0, self.energy_current - cost)
-
-    def record_activity(self, had_todos: bool) -> None:
-        self.recent_activity.append(had_todos)
-
-    def activity_ratio(self) -> float:
-        if not self.recent_activity:
+    @property
+    def activity_rate(self) -> float:
+        if not self._recent_activity:
             return 0.0
-        active_beats = sum(1 for item in self.recent_activity if item)
-        return active_beats / len(self.recent_activity)
+        return sum(self._recent_activity) / len(self._recent_activity)
 
-    def update_cognitive_load(self, pending_items: int) -> None:
-        backlog_factor = min(1.0, pending_items / 10.0)
-        activity_factor = self.activity_ratio()
-        self.cognitive_load = min(1.0, max(backlog_factor, activity_factor))
-
-    def adjust_plan_interval(self, had_todos: bool) -> None:
-        if had_todos:
-            self.plan_interval = 1 if self.cognitive_load >= self.busy_threshold else self.base_plan_interval
-            return
-
-        self.plan_interval = min(
-            self.base_plan_interval * 3,
-            self.plan_interval + 1,
-        )
+    @property
+    def activity_variability(self) -> float:
+        if len(self._event_intervals) < 2:
+            return 0.0
+        intervals = list(self._event_intervals)
+        mean = sum(intervals) / len(intervals)
+        if mean <= 0:
+            return 0.0
+        variance = sum((item - mean) ** 2 for item in intervals) / len(intervals)
+        return (variance**0.5) / mean
 
     def is_idle(self) -> bool:
-        return (
-            self.idle_counter >= self.idle_heartbeats_threshold
-            and self.cognitive_load < 0.2
-        )
+        return self.activity_rate < 0.2 and self.activity_variability < 0.3
+
+    def is_stressed(self) -> bool:
+        return self.activity_rate > 0.8 and self.activity_variability < 0.3
+
+    def is_in_flow(self) -> bool:
+        return 0.4 < self.activity_rate < 0.8 and self.activity_variability > 0.5
 
 
 bot_state = BotState()

@@ -1,0 +1,69 @@
+package: im.polaris.qq
+name: QQ聊天
+version: 1.2.0
+brain_version: ">=4.1.0"
+persona_hint: >-
+  通过这个应用，你可以在 QQ 上与人聊天。消息会被真实的人看到，所以需要
+  自然地判断时机、语气与措辞。
+capabilities:
+  - qq.send
+  - qq.receive
+tools:
+  - name: send_qq_message
+    description: 向一个 QQ 群或会话发送文本消息。
+    parameters:
+      session_id:
+        type: string
+        description: 群号或 QQ 号
+        required: true
+      text:
+        type: string
+        description: 消息内容
+        required: true
+    returns:
+      success:
+        type: boolean
+        description: 是否发送成功
+      delivered_at:
+        type: number
+        description: 实际发送时间戳
+    side_effects:
+      - 消息发出后会被对方或群成员看到
+  - name: send_qq_private_message
+    description: 向指定 QQ 用户发送私聊消息。
+    parameters:
+      user_id:
+        type: string
+        description: 目标 QQ 号
+        required: true
+      text:
+        type: string
+        description: 消息内容
+        required: true
+    returns:
+      success:
+        type: boolean
+        description: 是否发送成功
+    side_effects:
+      - 私聊内容只有双方可见
+  - name: at_user_in_group
+    description: 在群里 @ 某个用户并发送消息。
+    parameters:
+      group_id:
+        type: string
+        description: 群号
+        required: true
+      user_id:
+        type: string
+        description: 被 @ 的 QQ 号
+        required: true
+      text:
+        type: string
+        description: 消息内容
+        required: true
+    returns:
+      success:
+        type: boolean
+        description: 是否发送成功
+    side_effects:
+      - 被 @ 的用户会收到更强提醒

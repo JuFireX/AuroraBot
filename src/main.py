@@ -1,65 +1,66 @@
-from pathlib import Path
-import sys
+from __future__ import annotations
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+import asyncio
+import contextlib
 
-from src.config import Config
-from src.utils.Logger import get_logger
 from nonebot import get_driver
 
-from src.brain.core.agent import instance
+from src.applications.alarm import AlarmApplication
+from src.applications.diary import DiaryApplication
+from src.applications.mcp_container import MCPContainer
+from src.applications.qq import QQApplication
+from src.brain.core import engine
+from src.brain.core.capability_registry import clear
+from src.brain.core.context_builder import reset_app_hints
+from src.brain.core.queues import reset_runtime_queues, restore_runtime_snapshot
+from src.brain.core.state import bot_state
+from src.brain.memory.tools import register_memory_capabilities
+from src.brain.platform.application_host import app_host
+from src.config import Config
+from src.utils.Logger import get_logger
 
-Config.ensure_dirs()
-logger = get_logger()
+logger = get_logger("Main")
 driver = get_driver()
-_running_services: list[object] = []
+_engine_task: asyncio.Task[None] | None = None
+_stop_event: asyncio.Event | None = None
 
 
 @driver.on_startup
-async def startup_agent():
-    """在 NoneBot 启动时，开启 M1 的内核循环。"""
-    await instance.start()
-    await _start_optional_services()
-    logger.info("PAA 内核已启动")
+async def startup_agent() -> None:
+    global _engine_task, _stop_event
+
+    Config.ensure_dirs()
+    clear()
+    reset_app_hints()
+    bot_state.reset()
+    if not (Config.QUEUES_RESTORE_ON_START and restore_runtime_snapshot()):
+        reset_runtime_queues()
+    register_memory_capabilities()
+
+    if Config.ENABLE_QQ_SERVICE:
+        await app_host.register(QQApplication())
+    if Config.ENABLE_DIARY_SERVICE:
+        await app_host.register(DiaryApplication())
+    if Config.ENABLE_ALARM_SERVICE:
+        await app_host.register(AlarmApplication())
+    if Config.ENABLE_MCP_CONTAINER:
+        await app_host.register(MCPContainer())
+
+    _stop_event = asyncio.Event()
+    _engine_task = asyncio.create_task(engine.run_loop(_stop_event))
+    logger.info("PAA engine started")
 
 
 @driver.on_shutdown
-async def shutdown_agent():
-    """在 NoneBot 关闭时，停止智能体与外围服务。"""
-    instance.stop()
-    for service in reversed(_running_services):
-        stop = getattr(service, "stop", None)
-        if callable(stop):
-            stop()
-    _running_services.clear()
-    logger.info("PAA 内核已中止")
+async def shutdown_agent() -> None:
+    global _engine_task
 
-
-async def _start_optional_services() -> None:
-    if Config.RUN_MODE == "core":
-        logger.info("当前为 core 模式，仅启动 PAA 内核与内置 demo todo")
-        return
-
-    if Config.RUN_MODE == "prod" and Config.ENABLE_QQ_SERVICE:
-        from src.services.QQService.core import qq_service_instance
-
-        await qq_service_instance.start()
-        _running_services.append(qq_service_instance)
-
-    if Config.RUN_MODE == "prod" and Config.ENABLE_ALARM_SERVICE:
-        from src.services.AlarmService.core import alarm_service_instance
-
-        await alarm_service_instance.start()
-        _running_services.append(alarm_service_instance)
-
-    if Config.RUN_MODE == "prod" and Config.ENABLE_DIARY_SERVICE:
-        from src.services.DiaryService.core import diary_service_instance
-
-        await diary_service_instance.start()
-        _running_services.append(diary_service_instance)
-
-    if Config.RUN_MODE == "test" and Config.ENABLE_TEST_SERVICE:
-        from src.services.TestService.core import test_service_instance
-
-        await test_service_instance.start()
-        _running_services.append(test_service_instance)
+    if _stop_event is not None:
+        _stop_event.set()
+    if _engine_task is not None:
+        _engine_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await _engine_task
+    _engine_task = None
+    await app_host.stop_all()
+    logger.info("PAA engine stopped")

@@ -1,0 +1,41 @@
+package: im.polaris.diary
+name: 日记
+version: 1.0.0
+brain_version: ">=4.1.0"
+persona_hint: >-
+  通过这个应用，你可以记录当天的经历、互动和感受。写完日记后，语义记忆
+  快照会被刷新。
+capabilities:
+  - diary.write
+  - memory.write
+tools:
+  - name: write_diary
+    description: 写入结构化日记，并刷新语义记忆快照。
+    parameters:
+      date:
+        type: string
+        description: 日期，格式 YYYY-MM-DD
+        required: true
+      summary:
+        type: string
+        description: 当天总结
+        required: true
+      interactions:
+        type: array
+        description: 有意义的人际互动
+        required: false
+        items:
+          type: string
+      reflections:
+        type: string
+        description: 反思与感受
+        required: false
+    returns:
+      saved:
+        type: boolean
+        description: 是否保存成功
+      snapshot_refreshed:
+        type: boolean
+        description: 语义记忆快照是否已刷新
+    side_effects:
+      - 会写入日记数据并刷新语义记忆快照

@@ -20,57 +20,51 @@ class EpisodeStatus(str, Enum):
     CLOSED = "closed"
 
 
-@dataclass
+@dataclass(slots=True)
 class TodoItem:
     id: str
-    type: str  # 用于 Plan 阶段分组合并
+    type: str
     payload: dict[str, Any]
     urgency: Urgency = Urgency.NORMAL
-    created_at: float = 0.0  # unix timestamp
-    suggested_window: dict | None = None  # 柔性提醒时间窗口
+    created_at: float = 0.0
 
 
-@dataclass
+@dataclass(slots=True)
 class Plan:
     id: str
-    intent: str  # 决定 Attention 阶段如何展开
+    intent: str
     sub_items: list[TodoItem]
     priority: float
     base_priority: float
     related_episodes: list[str] = field(default_factory=list)
-    weight: float = 1.0
     created_at: float = 0.0
     last_touched_at: float = 0.0
 
 
-@dataclass
+@dataclass(slots=True)
 class Action:
     id: str
-    tool_name: str  # 对应 tool_registry 中的注册名
+    capability_name: str
     params: dict[str, Any]
-    energy_cost: float = 1.0
-    preconditions: list = field(default_factory=list)
 
 
-@dataclass
+@dataclass(slots=True)
 class Attention:
     plan_id: str
     intent: str
     priority: float
-    total_energy_estimate: float
-    action_count: int  # 展开时的动作总数
+    action_count: int
     current_index: int = 0
     state: AttentionState = AttentionState.ACTIVE
     created_at: float = 0.0
 
 
-@dataclass
+@dataclass(slots=True)
 class Episode:
     id: str
     summary: str
     participants: list[str]
     status: EpisodeStatus = EpisodeStatus.PENDING
     pending_on: str | None = None
-    notify: str | None = None
     created_at: float = 0.0
     closed_at: float | None = None

@@ -5,12 +5,12 @@ import time
 from collections import deque
 from dataclasses import asdict
 from enum import Enum
+from pathlib import Path
 
 from src.brain.core.models import (
     Action,
     Attention,
     AttentionState,
-    EpisodeStatus,
     Plan,
     TodoItem,
     Urgency,
@@ -63,17 +63,11 @@ class PlansQueue:
     def pop_lowest(self) -> Plan | None:
         return self._plans.pop(-1) if self._plans else None
 
-    def remove(self, plan_id: str) -> None:
-        self._plans = [plan for plan in self._plans if plan.id != plan_id]
-
     def empty(self) -> bool:
         return not self._plans
 
     def size(self) -> int:
         return len(self._plans)
-
-    def iter_all(self) -> list[Plan]:
-        return list(self._plans)
 
     def clear(self) -> None:
         self._plans.clear()
@@ -81,6 +75,9 @@ class PlansQueue:
     def replace(self, plans: list[Plan]) -> None:
         self._plans = plans
         self._plans.sort(key=lambda item: item.priority, reverse=True)
+
+    def iter_all(self) -> list[Plan]:
+        return list(self._plans)
 
 
 class ActionsQueue:
@@ -136,7 +133,7 @@ def reset_runtime_queues() -> None:
 
 def persist_runtime_snapshot(reason: str = "manual") -> None:
     snapshot = {
-        "version": "3.0",
+        "version": "4.1",
         "updated_at": time.time(),
         "reason": reason,
         "queues": {
@@ -157,11 +154,9 @@ def restore_runtime_snapshot() -> bool:
     file_path = Config.QUEUES_SNAPSHOT_FILE
     if not file_path.exists():
         return False
-
     try:
         payload = json.loads(file_path.read_text(encoding="utf-8-sig"))
         queue_payload = payload.get("queues", {})
-
         restored_todos = [
             _todo_from_dict(item) for item in queue_payload.get("todo", []) if isinstance(item, dict)
         ]
@@ -177,23 +172,14 @@ def restore_runtime_snapshot() -> bool:
         restored_attention = (
             _attention_from_dict(attention_data) if isinstance(attention_data, dict) else None
         )
-
         _validate_runtime_consistency(restored_actions, restored_attention)
-
         todo_queue.replace(restored_todos)
         plans_queue.replace(restored_plans)
         actions_queue.replace(restored_actions)
         set_current_attention(restored_attention)
-        logger.info(
-            "[Queues] Restored snapshot todo=%s plans=%s actions=%s attention=%s",
-            todo_queue.size(),
-            plans_queue.size(),
-            actions_queue.size(),
-            "yes" if current_attention else "no",
-        )
         return True
-    except Exception as exc:
-        logger.error("[Queues] Failed to restore snapshot: %s", exc)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to restore queue snapshot: %s", exc)
         return False
 
 
@@ -218,12 +204,13 @@ def _todo_from_dict(data: dict[str, object]) -> TodoItem:
         payload=dict(data.get("payload", {})),
         urgency=Urgency(str(data.get("urgency", Urgency.NORMAL.value))),
         created_at=float(data.get("created_at", 0.0)),
-        suggested_window=dict(data["suggested_window"]) if isinstance(data.get("suggested_window"), dict) else None,
     )
 
 
 def _plan_from_dict(data: dict[str, object]) -> Plan:
-    sub_items = [_todo_from_dict(item) for item in data.get("sub_items", []) if isinstance(item, dict)]
+    sub_items = [
+        _todo_from_dict(item) for item in data.get("sub_items", []) if isinstance(item, dict)
+    ]
     return Plan(
         id=str(data.get("id", "")),
         intent=str(data.get("intent", "")),
@@ -233,20 +220,19 @@ def _plan_from_dict(data: dict[str, object]) -> Plan:
         related_episodes=[
             str(item) for item in data.get("related_episodes", []) if str(item).strip()
         ],
-        weight=float(data.get("weight", 1.0)),
         created_at=float(data.get("created_at", 0.0)),
         last_touched_at=float(data.get("last_touched_at", 0.0)),
     )
 
 
 def _action_from_dict(data: dict[str, object]) -> Action:
-    preconditions = data.get("preconditions", [])
+    capability_name = str(
+        data.get("capability_name", data.get("tool_name", ""))
+    )
     return Action(
         id=str(data.get("id", "")),
-        tool_name=str(data.get("tool_name", "")),
+        capability_name=capability_name,
         params=dict(data.get("params", {})),
-        energy_cost=float(data.get("energy_cost", 1.0)),
-        preconditions=list(preconditions) if isinstance(preconditions, list) else [],
     )
 
 
@@ -255,7 +241,6 @@ def _attention_from_dict(data: dict[str, object]) -> Attention:
         plan_id=str(data.get("plan_id", "")),
         intent=str(data.get("intent", "")),
         priority=float(data.get("priority", 0.0)),
-        total_energy_estimate=float(data.get("total_energy_estimate", 0.0)),
         action_count=int(data.get("action_count", 0)),
         current_index=int(data.get("current_index", 0)),
         state=AttentionState(str(data.get("state", AttentionState.ACTIVE.value))),
@@ -269,19 +254,16 @@ def _validate_runtime_consistency(
 ) -> None:
     if attention is None:
         if actions:
-            raise ValueError("snapshot contains actions without current attention")
+            raise ValueError("snapshot contains actions without attention")
         return
-
     if attention.state == AttentionState.COMPLETED:
         raise ValueError("snapshot contains completed attention")
     if attention.action_count <= 0:
         raise ValueError("attention.action_count must be positive")
-    if attention.current_index < 0 or attention.current_index >= attention.action_count:
+    if attention.current_index < 0 or attention.current_index > attention.action_count:
         raise ValueError("attention.current_index is out of range")
-
     remaining_actions = attention.action_count - attention.current_index
     if len(actions) != remaining_actions:
         raise ValueError(
-            "attention progress mismatch: remaining_actions=%s actual_actions=%s"
-            % (remaining_actions, len(actions))
+            f"attention progress mismatch: remaining={remaining_actions} actual={len(actions)}"
         )

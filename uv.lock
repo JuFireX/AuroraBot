@@ -221,6 +221,7 @@ dependencies = [
     { name = "nonebot-adapter-onebot" },
     { name = "nonebot-plugin-localstore" },
     { name = "nonebot2", extra = ["fastapi"] },
+    { name = "pyyaml" },
 ]
 
 [package.optional-dependencies]
@@ -238,6 +239,7 @@ requires-dist = [
     { name = "nonebot-plugin-localstore", specifier = ">=0.7.4" },
     { name = "nonebot2", extras = ["fastapi"], specifier = ">=2.5.0" },
     { name = "pyright", extras = ["nodejs"], marker = "extra == 'dev'" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "ruff", marker = "extra == 'dev'" },
 ]
 provides-extras = ["dev"]
