@@ -29,6 +29,7 @@ class ContextBuilder:
         if memory_snapshot.should_refresh():
             await memory_snapshot.refresh()
         parts = [
+            self._prompt("PLAN.md"),
             self._prompt("SOUL.md"),
             self._capability_block(),
             self._app_hints_block(),
@@ -108,7 +109,9 @@ class ContextBuilder:
         return f"## Current feeling\n{feeling}" if feeling else ""
 
     def _format_messages(self, messages: list[Message]) -> str:
-        return "\n".join(f"- [{message.role}] {message.content}" for message in messages[-12:])
+        return "\n".join(
+            f"- [{message.role}] {message.content}" for message in messages[-12:]
+        )
 
 
 def _describe_feeling() -> str:

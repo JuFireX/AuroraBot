@@ -144,7 +144,7 @@ def _expand_plan_deterministic(plan: Plan) -> list[Action]:
 
 
 def _tool_call_to_action(call: LLMToolCall) -> Action:
-    return _make_action(call.name, call.arguments)
+    return _make_action(capability_registry.resolve_name(call.name), call.arguments)
 
 
 def _make_action(capability_name: str, params: dict[str, object]) -> Action:
