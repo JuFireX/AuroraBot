@@ -1,9 +1,9 @@
 import asyncio
 import unittest
 
-from applications.alarm import AlarmApplication
-from applications.diary import DiaryApplication
-from applications.qq import QQApplication
+from apps.alarm import AlarmApplication
+from apps.diary import DiaryApplication
+from apps.qq import QQApplication
 from src.brain.platform.application_host import ApplicationHost
 
 

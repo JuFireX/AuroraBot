@@ -1,7 +1,7 @@
 import asyncio
 import unittest
 
-from applications.qq import QQApplication
+from apps.qq import QQApplication
 from src.brain.platform.application_host import ApplicationHost
 
 

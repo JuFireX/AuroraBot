@@ -3,19 +3,19 @@ from __future__ import annotations
 import argparse
 import asyncio
 import datetime as dt
+import yaml
 import json
 from dataclasses import asdict
 from typing import Any
 
-import yaml
 
-from src.applications.alarm import AlarmApplication
-from src.applications.diary import DiaryApplication
-from src.applications.mcp_container import MCPContainer
-from src.applications.qq import QQApplication
 from src.brain.platform.application_host import ApplicationHost
 from src.brain.platform.contracts import AppEvent
 from src.config import Config
+
+from apps.alarm import AlarmApplication
+from apps.diary import DiaryApplication
+from apps.qq import QQApplication
 
 
 def _build_host() -> ApplicationHost:
@@ -27,7 +27,6 @@ async def _register_selected_apps(host: ApplicationHost, names: list[str]) -> No
         "qq": QQApplication(enable_listener=False),
         "diary": DiaryApplication(),
         "alarm": AlarmApplication(),
-        "mcp": MCPContainer(),
     }
     for name in names:
         app = mapping.get(name)
@@ -86,7 +85,7 @@ async def main() -> None:
         "--apps",
         nargs="+",
         default=["qq", "diary", "alarm"],
-        help="要注册的应用，支持 qq diary alarm mcp",
+        help="要注册的应用，支持 qq diary alarm",
     )
     parser.add_argument(
         "--command", help="要调用的完整命令名，如 im.polaris.diary.write_diary"
