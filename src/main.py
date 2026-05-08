@@ -63,4 +63,4 @@ async def shutdown_agent() -> None:
             await _engine_task
     _engine_task = None
     await app_host.stop_all()
-    logger.info("PAA 内核已停止")
+    logger.info("PAA 内核已中断")
