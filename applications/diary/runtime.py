@@ -5,8 +5,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from src.brain.memory.semantic import semantic_memory
-from src.brain.memory.snapshot import memory_snapshot
+from src.brain.platform.contracts import AppEvent
 from src.utils.Logger import get_logger
 
 if TYPE_CHECKING:
@@ -55,20 +54,15 @@ class DiaryApplication:
         }
         self._records.append(record)
         self._save()
-
-        parts = [f"date: {date}", f"summary: {summary}"]
-        if record["interactions"]:
-            parts.append("interactions: " + " | ".join(record["interactions"]))
-        if record["reflections"]:
-            parts.append("reflections: " + str(record["reflections"]))
-
-        await semantic_memory.add(
-            content="\n".join(parts),
-            user_id="__global__",
-            metadata={"kind": "diary", "date": date},
-        )
-        await memory_snapshot.refresh(force=True)
-        return {"saved": True, "snapshot_refreshed": True}
+        if self._api is not None:
+            self._api.emit_event(
+                AppEvent(
+                    source=self._api.package,
+                    type="diary.written",
+                    payload=record,
+                )
+            )
+        return {"saved": True, "record_count": len(self._records)}
 
     def _load(self) -> None:
         if self._diary_file is None or not self._diary_file.exists():

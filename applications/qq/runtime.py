@@ -3,15 +3,13 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from nonebot import get_bot, get_bots, on_message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageEvent
 
-from src.brain.core.models import TodoItem, Urgency
-from src.brain.core.session import session_buffer
+from src.brain.platform.contracts import AppEvent
 from src.utils.Logger import get_logger
 
 if TYPE_CHECKING:
@@ -21,8 +19,9 @@ logger = get_logger("QQApplication")
 
 
 class QQApplication:
-    def __init__(self) -> None:
+    def __init__(self, enable_listener: bool = True) -> None:
         self._api: PlatformAPI | None = None
+        self._enable_listener = enable_listener
         self._running = False
         self._message_handler = None
         self._events_file: Path | None = None
@@ -39,7 +38,8 @@ class QQApplication:
         return Path(__file__).with_name("manifest.yaml")
 
     async def on_start(self) -> None:
-        self._register_message_listener()
+        if self._enable_listener:
+            self._register_message_listener()
         self._load_persistent_state()
         self._running = True
         logger.info("QQ application started")
@@ -55,7 +55,11 @@ class QQApplication:
     def _register_message_listener(self) -> None:
         if self._message_handler is not None:
             return
-        self._message_handler = on_message(priority=5, block=False)
+        try:
+            self._message_handler = on_message(priority=5, block=False)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("QQ listener registration skipped: %s", exc)
+            return
 
         @self._message_handler.handle()
         async def handle_message(bot: Bot, event: MessageEvent) -> None:
@@ -89,7 +93,6 @@ class QQApplication:
         bot_id: str,
     ) -> None:
         api = self._require_api()
-        session_buffer.append_text(session_id=session_id, role="user", content=text)
         self._session_targets[session_id] = {
             "session_id": session_id,
             "user_id": user_id,
@@ -106,10 +109,11 @@ class QQApplication:
             group_id=group_id,
             bot_id=bot_id,
         )
-        api.post_intention(
-            TodoItem(
-                id=str(uuid.uuid4()),
-                type="qq_msg",
+        api.emit_event(
+            AppEvent(
+                source=api.package,
+                type="message.received",
+                session_id=session_id,
                 payload={
                     "session_id": session_id,
                     "text": text,
@@ -118,8 +122,6 @@ class QQApplication:
                     "group_id": group_id,
                     "bot_id": bot_id,
                 },
-                urgency=Urgency.NORMAL,
-                created_at=time.time(),
             )
         )
         self._save_persistent_state()
@@ -183,7 +185,6 @@ class QQApplication:
             await asyncio.sleep(self._typing_delay_seconds(part))
             if bot is not None:
                 await bot.send_group_msg(group_id=int(group_id), message=part)
-            session_buffer.append_text(session_id=session_id, role="assistant", content=part)
             self._append_event(
                 direction="outbound",
                 session_id=session_id,
@@ -207,7 +208,6 @@ class QQApplication:
             await asyncio.sleep(self._typing_delay_seconds(part))
             if bot is not None:
                 await bot.send_private_msg(user_id=int(user_id), message=part)
-            session_buffer.append_text(session_id=session_id, role="assistant", content=part)
             self._append_event(
                 direction="outbound",
                 session_id=session_id,

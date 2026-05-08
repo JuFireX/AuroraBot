@@ -1,14 +1,12 @@
 from __future__ import annotations
 
+from collections import deque
+from collections.abc import Iterable
 import inspect
 from typing import Any
 
-from src.brain.core.capability_registry import CapabilitySpec, register as register_capability
-from src.brain.core.context_builder import (
-    register_app_planning_hint,
-    reset_app_planning_hints,
-)
 from src.brain.platform.application_api import PlatformAPI
+from src.brain.platform.contracts import AppEvent, CommandSpec
 from src.brain.platform.application_protocol import ApplicationProtocol
 from src.brain.platform.manifest import Manifest, ToolSpec
 from src.utils.Logger import get_logger
@@ -19,6 +17,9 @@ logger = get_logger("ApplicationHost")
 class ApplicationHost:
     def __init__(self) -> None:
         self._apps: dict[str, ApplicationProtocol] = {}
+        self._manifests: dict[str, Manifest] = {}
+        self._commands: dict[str, CommandSpec] = {}
+        self._events: deque[AppEvent] = deque()
 
     async def register(self, app: ApplicationProtocol) -> None:
         if not isinstance(app, ApplicationProtocol):
@@ -34,18 +35,15 @@ class ApplicationHost:
                 raise AttributeError(
                     f"{app.__class__.__name__} is missing method declared in manifest: {tool_spec.name}"
                 )
-            register_capability(
-                CapabilitySpec(
+            self.register_command(
+                CommandSpec(
                     name=f"{manifest.package}.{tool_spec.name}",
-                    description=_build_llm_description(tool_spec),
+                    description=_build_command_description(tool_spec),
                     parameters_schema=tool_spec.to_parameters_schema(),
                     returns_schema=tool_spec.to_returns_schema(),
-                    side_effects=tool_spec.side_effects,
                     handler=handler,
                 )
             )
-        if manifest.planning_hint:
-            register_app_planning_hint(manifest.package, manifest.planning_hint)
         bind = getattr(app, "_bind", None)
         if callable(bind):
             result = bind(PlatformAPI(manifest, self))
@@ -53,7 +51,51 @@ class ApplicationHost:
                 await result
         await _maybe_await(app.on_start())
         self._apps[manifest.package] = app
+        self._manifests[manifest.package] = manifest
         logger.info("Application registered: %s (%s)", manifest.name, manifest.package)
+
+    def register_command(self, spec: CommandSpec) -> None:
+        if not spec.name.strip():
+            raise ValueError("Command name is required")
+        self._commands[spec.name] = spec
+
+    def emit_event(self, event: AppEvent) -> None:
+        self._events.append(event)
+        logger.info(
+            "Application event emitted: %s (%s)",
+            event.type,
+            event.source,
+        )
+
+    def drain_events(self, limit: int | None = None) -> list[AppEvent]:
+        drained: list[AppEvent] = []
+        remaining = limit if limit is not None and limit >= 0 else None
+        while self._events and (remaining is None or remaining > 0):
+            drained.append(self._events.popleft())
+            if remaining is not None:
+                remaining -= 1
+        return drained
+
+    def peek_events(self) -> list[AppEvent]:
+        return list(self._events)
+
+    def list_apps(self) -> list[str]:
+        return list(self._apps.keys())
+
+    def list_commands(self) -> list[str]:
+        return sorted(self._commands.keys())
+
+    def get_app(self, package: str) -> ApplicationProtocol | None:
+        return self._apps.get(package)
+
+    def iter_manifests(self) -> Iterable[Manifest]:
+        return self._manifests.values()
+
+    async def invoke_command(self, command_name: str, **kwargs: Any) -> Any:
+        spec = self._commands.get(command_name)
+        if spec is None:
+            raise KeyError(f"Unknown command: {command_name}")
+        return await _maybe_await(spec.handler(**kwargs))
 
     async def tick(self) -> None:
         for package, app in self._apps.items():
@@ -69,7 +111,9 @@ class ApplicationHost:
             except Exception as exc:  # noqa: BLE001
                 logger.error("Application stop failed [%s]: %s", package, exc)
         self._apps.clear()
-        reset_app_planning_hints()
+        self._manifests.clear()
+        self._commands.clear()
+        self._events.clear()
 
 
 async def _maybe_await(result: Any) -> Any:
@@ -78,7 +122,7 @@ async def _maybe_await(result: Any) -> Any:
     return result
 
 
-def _build_llm_description(tool_spec: ToolSpec) -> str:
+def _build_command_description(tool_spec: ToolSpec) -> str:
     lines = [tool_spec.description.strip()]
     if tool_spec.side_effects:
         lines.append("Side effects:")

@@ -3,17 +3,16 @@ name: 日记
 version: 1.0.0
 brain_version: ">=4.1.0"
 persona_hint: >-
-  通过这个应用，你可以记录当天的经历、互动和感受。写完日记后，语义记忆
-  快照会被刷新。
+  通过这个应用，你可以记录当天的经历、互动和感受。
 planning_hint: >-
-  处理日记计划时，真正的完成动作是 `write_diary`。回顾记忆只能作为准备步骤，
-  不能替代写入本身；如果已经决定写日记，动作序列里应包含日记写入。
+  处理日记相关事务时，真正的完成动作是 `write_diary`。它是一个纯持久化写入
+  命令，不负责额外的认知推理。
 capabilities:
   - diary.write
   - memory.write
 tools:
   - name: write_diary
-    description: 写入结构化日记，并刷新语义记忆快照。
+    description: 写入结构化日记记录。
     parameters:
       date:
         type: string
@@ -37,8 +36,8 @@ tools:
       saved:
         type: boolean
         description: 是否保存成功
-      snapshot_refreshed:
-        type: boolean
-        description: 语义记忆快照是否已刷新
+      record_count:
+        type: number
+        description: 当前累计日记条数
     side_effects:
-      - 会写入日记数据并刷新语义记忆快照
+      - 会写入日记数据到本地存储

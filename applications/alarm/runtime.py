@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from src.brain.core.models import TodoItem, Urgency
+from src.brain.platform.contracts import AppEvent
 from src.config import Config
 from src.utils.Logger import get_logger
 
@@ -92,13 +92,12 @@ class AlarmApplication:
             )
             if todo_type == "diary_prompt":
                 payload["date"] = time.strftime("%Y-%m-%d")
-            api.post_intention(
-                TodoItem(
-                    id=str(uuid.uuid4()),
+            api.emit_event(
+                AppEvent(
+                    source=api.package,
                     type=todo_type,
+                    session_id=str(payload.get("session_id", "")),
                     payload=payload,
-                    urgency=Urgency.GENTLE,
-                    created_at=now,
                 )
             )
             interval_seconds = float(

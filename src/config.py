@@ -1,12 +1,6 @@
 import os
 from pathlib import Path
-
-try:
-    from dotenv import load_dotenv
-except ModuleNotFoundError:
-
-    def load_dotenv(*_args: object, **_kwargs: object) -> bool:
-        return False
+from dotenv import load_dotenv
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -23,14 +17,17 @@ def _get_bool(name: str, default: bool) -> bool:
 
 
 class Config:
+    # 路径相关配置
     PROJECT_ROOT = PROJECT_ROOT
     SRC_ROOT = PROJECT_ROOT / "src"
     LOG_DIR = PROJECT_ROOT / "logs"
     DATA_DIR = PROJECT_ROOT / "data"
-    APP_DATA_DIR = DATA_DIR / "app_data"
+
     PROMPTS_DIR = SRC_ROOT / "brain" / "prompts"
+    APP_DATA_DIR = DATA_DIR / "app_data"
     QUEUES_DATA_DIR = DATA_DIR / "queues"
     MEMORY_DATA_DIR = DATA_DIR / "memory"
+
     QUEUES_SNAPSHOT_FILE = QUEUES_DATA_DIR / "runtime_queues.json"
     EPISODIC_MEMORY_FILE = MEMORY_DATA_DIR / "episodes.json"
     SEMANTIC_MEMORY_FILE = MEMORY_DATA_DIR / "semantic_memory.json"

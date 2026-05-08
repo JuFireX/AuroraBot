@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+import yaml
 
 from src.utils.Logger import get_logger
 
@@ -42,8 +43,10 @@ class MCPContainer:
         if not data_file.exists():
             return []
         try:
-            payload = json.loads(data_file.read_text(encoding="utf-8-sig"))
+            payload = yaml.safe_load(data_file.read_text(encoding="utf-8-sig"))
         except Exception:
+            return []
+        if not isinstance(payload, dict):
             return []
         servers = payload.get("servers", [])
         return [item for item in servers if isinstance(item, dict)]

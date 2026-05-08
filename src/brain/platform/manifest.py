@@ -65,9 +65,12 @@ class Manifest:
     def load(cls, path: Path) -> "Manifest":
         raw_payload = yaml.safe_load(path.read_text(encoding="utf-8-sig"))
         payload = raw_payload if isinstance(raw_payload, dict) else {}
+        raw_tools = payload.get("tools")
+        if not isinstance(raw_tools, list):
+            raw_tools = payload.get("commands", [])
         tools = [
             ToolSpec.from_dict(item)
-            for item in payload.get("tools", [])
+            for item in raw_tools
             if isinstance(item, dict)
         ]
         return cls(
