@@ -4,7 +4,10 @@ import inspect
 from typing import Any
 
 from src.brain.core.capability_registry import CapabilitySpec, register as register_capability
-from src.brain.core.context_builder import register_app_hint, reset_app_hints
+from src.brain.core.context_builder import (
+    register_app_planning_hint,
+    reset_app_planning_hints,
+)
 from src.brain.platform.application_api import PlatformAPI
 from src.brain.platform.application_protocol import ApplicationProtocol
 from src.brain.platform.manifest import Manifest, ToolSpec
@@ -41,8 +44,8 @@ class ApplicationHost:
                     handler=handler,
                 )
             )
-        if manifest.persona_hint:
-            register_app_hint(manifest.package, manifest.persona_hint)
+        if manifest.planning_hint:
+            register_app_planning_hint(manifest.package, manifest.planning_hint)
         bind = getattr(app, "_bind", None)
         if callable(bind):
             result = bind(PlatformAPI(manifest, self))
@@ -66,7 +69,7 @@ class ApplicationHost:
             except Exception as exc:  # noqa: BLE001
                 logger.error("Application stop failed [%s]: %s", package, exc)
         self._apps.clear()
-        reset_app_hints()
+        reset_app_planning_hints()
 
 
 async def _maybe_await(result: Any) -> Any:

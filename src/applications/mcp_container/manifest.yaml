@@ -6,6 +6,9 @@ brain_version: ">=4.1.0"
 persona_hint: >-
   通过这个容器，你可以借用外部系统的工具。当前仓库已经提供 application
   外壳和配置加载路径，后续可以继续接入真正的 MCP 会话。
+planning_hint: >-
+  这个容器当前还只是骨架，没有可执行工具。除非后续 manifest 注册出真实工具，
+  否则不要把它当成可以立刻完成任务的能力来源。
 capabilities:
   - network
   - subprocess

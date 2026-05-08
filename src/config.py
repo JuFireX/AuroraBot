@@ -50,12 +50,26 @@ class Config:
 
     MODEL: str = os.getenv("MODEL", "deepseek/deepseek-v4-flash")
     AI_CONTEXT_CHAR_LIMIT: int = int(os.getenv("AI_CONTEXT_CHAR_LIMIT", "6000"))
+    # 兼容旧配置 AI_QUERY_DEBUG，同时提供更明确的 LLM 请求/响应日志开关。
+    LLM_LOG_QUERY: bool = _get_bool(
+        "LLM_LOG_QUERY",
+        _get_bool("AI_QUERY_DEBUG", False),
+    )
+    LLM_LOG_RESPONSE: bool = _get_bool(
+        "LLM_LOG_RESPONSE",
+        _get_bool("AI_QUERY_DEBUG", False),
+    )
+    CAPABILITY_LOG_EXECUTION: bool = _get_bool("CAPABILITY_LOG_EXECUTION", False)
+    LLM_LOG_MAX_CHARS: int = int(os.getenv("LLM_LOG_MAX_CHARS", "2000"))
     MEM0_API_KEY: str = os.getenv("MEM0_API_KEY", "m0-xxx")
     MEM0_API_BASE_URL: str = os.getenv("MEM0_API_BASE_URL", "https://api.mem0.ai")
 
     SESSION_MAX_TOKENS: int = int(os.getenv("SESSION_MAX_TOKENS", "4000"))
     QQ_REPLY_CHAR_LIMIT: int = int(os.getenv("QQ_REPLY_CHAR_LIMIT", "120"))
     QQ_HISTORY_LIMIT: int = int(os.getenv("QQ_HISTORY_LIMIT", "50"))
+    QQ_REPLY_DEBOUNCE_SECONDS: float = float(
+        os.getenv("QQ_REPLY_DEBOUNCE_SECONDS", "6.0")
+    )
     ALARM_DEFAULT_INTERVAL_SECONDS: int = int(
         os.getenv("ALARM_DEFAULT_INTERVAL_SECONDS", "1800")
     )

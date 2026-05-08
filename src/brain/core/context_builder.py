@@ -10,15 +10,15 @@ from src.brain.core.state import bot_state
 from src.brain.memory.snapshot import memory_snapshot
 from src.config import Config
 
-_APP_HINTS: dict[str, str] = {}
+_APP_PLANNING_HINTS: dict[str, str] = {}
 
 
-def register_app_hint(package: str, hint: str) -> None:
-    _APP_HINTS[package] = hint
+def register_app_planning_hint(package: str, hint: str) -> None:
+    _APP_PLANNING_HINTS[package] = hint
 
 
-def reset_app_hints() -> None:
-    _APP_HINTS.clear()
+def reset_app_planning_hints() -> None:
+    _APP_PLANNING_HINTS.clear()
 
 
 class ContextBuilder:
@@ -32,7 +32,7 @@ class ContextBuilder:
             self._prompt("PLAN.md"),
             self._prompt("SOUL.md"),
             self._capability_block(),
-            self._app_hints_block(),
+            self._app_planning_hints_block(),
             self._semantic_snapshot(),
             self._episodes_block(related_episodes),
             self._bot_state_block(),
@@ -42,10 +42,18 @@ class ContextBuilder:
     def build_user(self, plan: Plan, session_id: str | None = None) -> str:
         parts = [
             f"Current intent: {plan.intent}",
+            f"Summary: {plan.summary}",
             f"Priority: {plan.priority:.1f}",
         ]
-        if plan.sub_items:
-            items_payload = [item.payload for item in plan.sub_items]
+        source_todos = []
+        try:
+            from src.brain.core.queues import todo_queue
+
+            source_todos = todo_queue.get_many(plan.source_todo_ids)
+        except Exception:
+            source_todos = []
+        if source_todos:
+            items_payload = [item.payload for item in source_todos]
             parts.append("Items:")
             parts.append(json.dumps(items_payload, ensure_ascii=False, indent=2))
         if plan.related_episodes:
@@ -81,11 +89,11 @@ class ContextBuilder:
             )
         return "\n".join(lines)
 
-    def _app_hints_block(self) -> str:
-        if not _APP_HINTS:
+    def _app_planning_hints_block(self) -> str:
+        if not _APP_PLANNING_HINTS:
             return ""
-        lines = ["## Application hints"]
-        for package, hint in _APP_HINTS.items():
+        lines = ["## Application planning hints"]
+        for package, hint in _APP_PLANNING_HINTS.items():
             lines.append(f"### {package}")
             lines.append(hint)
         return "\n".join(lines)

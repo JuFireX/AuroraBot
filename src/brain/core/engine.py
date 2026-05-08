@@ -17,7 +17,7 @@ async def run_loop(stop_event: asyncio.Event) -> None:
         try:
             await tick()
         except Exception as exc:  # noqa: BLE001
-            logger.error("Heartbeat error: %s", exc)
+            logger.error(f"在第 {bot_state.heartbeat_count} 心跳时出错: {exc}")
         await asyncio.sleep(Config.HEARTBEAT_INTERVAL)
 
 

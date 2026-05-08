@@ -5,6 +5,9 @@ import re
 from hashlib import sha1
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
+from src.utils.Logger import get_logger
+
+logger = get_logger("CapabilityRegistry")
 
 
 @dataclass(slots=True)

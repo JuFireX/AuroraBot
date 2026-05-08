@@ -5,6 +5,13 @@ brain_version: ">=4.1.0"
 persona_hint: >-
   通过这个应用，你可以在 QQ 上与人聊天。消息会被真实的人看到，所以需要
   自然地判断时机、语气与措辞。
+planning_hint: >-
+  处理 QQ 消息时，目标不是“看见了消息”，而是完成一次对话上的回应。通常先
+  回顾记忆，再调用发送类工具，把内容真正发到对应 session。只有在明确不需要
+  回复时，才允许不发送消息。同一个 session 在短时间内连续发来的多条消息，
+  通常应视为同一轮对话材料，先综合理解后再回复，而不是机械地每条都单独回。
+  如果想拆成多条消息发送，应返回多个发送动作，而不是把多条消息拼进同一个
+  text 里。
 capabilities:
   - qq.send
   - qq.receive
@@ -18,7 +25,7 @@ tools:
         required: true
       text:
         type: string
-        description: 消息内容
+        description: 一条实际发出的消息内容；若要分多条发送，应多次调用该工具
         required: true
     returns:
       success:
@@ -38,7 +45,7 @@ tools:
         required: true
       text:
         type: string
-        description: 消息内容
+        description: 一条实际发出的私聊消息；若要分多条发送，应多次调用该工具
         required: true
     returns:
       success:
@@ -59,7 +66,7 @@ tools:
         required: true
       text:
         type: string
-        description: 消息内容
+        description: 一条实际发出的群消息；若要分多条发送，应多次调用该工具
         required: true
     returns:
       success:

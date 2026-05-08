@@ -91,7 +91,21 @@ async def chat_completion(
     messages: list[dict[str, Any]], total_limit: int | None = None, **kwargs: Any
 ) -> Any:
     clipped_messages = clip_messages_to_limit(messages, total_limit)
-    return await acompletion(model=Config.MODEL, messages=clipped_messages, **kwargs)
+    if Config.LLM_LOG_QUERY:
+        logger.info(
+            "[LLM Query] %s",
+            _serialize_llm_query(
+                model=Config.MODEL,
+                messages=clipped_messages,
+                kwargs=kwargs,
+            ),
+        )
+    response = await acompletion(
+        model=Config.MODEL, messages=clipped_messages, **kwargs
+    )
+    if Config.LLM_LOG_RESPONSE:
+        logger.info("[LLM Response] %s", _serialize_llm_response(response))
+    return response
 
 
 async def llm_call(
@@ -99,14 +113,24 @@ async def llm_call(
     tools: list[dict[str, Any]],
     message: str,
 ) -> list[LLMToolCall]:
-    openai_tools = [_adapt_tool_schema(tool) for tool in tools]
+    tool_names = [
+        str(tool.get("name", "") or tool.get("function", {}).get("name", "")).strip()
+        for tool in tools
+    ]
+    tool_names = [name for name in tool_names if name]
     response = await chat_completion(
         messages=[
             {"role": "system", "content": system},
-            {"role": "user", "content": message},
+            {
+                "role": "user",
+                "content": (
+                    f"{message}\n\n"
+                    f"可用动作名: {', '.join(tool_names)}\n"
+                    "只返回纯 JSON 动作列表, 不要等待工具执行结果后再继续规划. "
+                    "如果计划需要真正完成外部动作, 直接一次性给出完整动作序列."
+                ),
+            },
         ],
-        tools=openai_tools,
-        tool_choice="auto",
     )
 
     tool_calls = _extract_tool_calls(response)
@@ -203,7 +227,9 @@ def _parse_calls_from_content(content: str) -> list[LLMToolCall]:
         raw_calls = [item for item in payload if isinstance(item, dict)]
     elif isinstance(payload, dict):
         if isinstance(payload.get("tool_calls"), list):
-            raw_calls = [item for item in payload["tool_calls"] if isinstance(item, dict)]
+            raw_calls = [
+                item for item in payload["tool_calls"] if isinstance(item, dict)
+            ]
         elif payload.get("name"):
             raw_calls = [payload]
 
@@ -215,7 +241,9 @@ def _parse_calls_from_content(content: str) -> list[LLMToolCall]:
         parsed.append(
             LLMToolCall(
                 name=name,
-                arguments=_parse_arguments(item.get("arguments", item.get("params", {}))),
+                arguments=_parse_arguments(
+                    item.get("arguments", item.get("params", {}))
+                ),
             )
         )
     return parsed
@@ -245,3 +273,50 @@ def _parse_arguments(raw_arguments: Any) -> dict[str, Any]:
             )
             return {}
     return {}
+
+
+def _serialize_llm_query(
+    model: str,
+    messages: list[dict[str, Any]],
+    kwargs: dict[str, Any],
+) -> str:
+    payload = {
+        "model": model,
+        "messages": messages,
+    }
+    if "tool_choice" in kwargs:
+        payload["tool_choice"] = kwargs["tool_choice"]
+    if "tools" in kwargs:
+        payload["tools"] = kwargs["tools"]
+    return _clip_json(payload)
+
+
+def _serialize_llm_response(response: Any) -> str:
+    message = getattr(response.choices[0], "message", None)
+    payload = {
+        "content": _pick_attr(message, "content"),
+        "tool_calls": _extract_tool_call_payloads(message),
+        "finish_reason": getattr(response.choices[0], "finish_reason", None),
+    }
+    return _clip_json(payload)
+
+
+def _extract_tool_call_payloads(message: Any) -> list[dict[str, Any]]:
+    raw_tool_calls = getattr(message, "tool_calls", None) or []
+    payloads: list[dict[str, Any]] = []
+    for tool_call in raw_tool_calls:
+        function = getattr(tool_call, "function", None)
+        if function is None and isinstance(tool_call, dict):
+            function = tool_call.get("function")
+        payloads.append(
+            {
+                "name": _pick_attr(function, "name"),
+                "arguments": _pick_attr(function, "arguments"),
+            }
+        )
+    return payloads
+
+
+def _clip_json(payload: dict[str, Any]) -> str:
+    serialized = json.dumps(payload, ensure_ascii=False, default=str)
+    return trim_text(serialized, Config.LLM_LOG_MAX_CHARS)

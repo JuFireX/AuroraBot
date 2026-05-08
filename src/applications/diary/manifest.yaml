@@ -5,6 +5,9 @@ brain_version: ">=4.1.0"
 persona_hint: >-
   通过这个应用，你可以记录当天的经历、互动和感受。写完日记后，语义记忆
   快照会被刷新。
+planning_hint: >-
+  处理日记计划时，真正的完成动作是 `write_diary`。回顾记忆只能作为准备步骤，
+  不能替代写入本身；如果已经决定写日记，动作序列里应包含日记写入。
 capabilities:
   - diary.write
   - memory.write

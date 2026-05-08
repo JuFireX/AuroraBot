@@ -11,7 +11,7 @@ from src.applications.mcp_container import MCPContainer
 from src.applications.qq import QQApplication
 from src.brain.core import engine
 from src.brain.core.capability_registry import clear
-from src.brain.core.context_builder import reset_app_hints
+from src.brain.core.context_builder import reset_app_planning_hints
 from src.brain.core.queues import reset_runtime_queues, restore_runtime_snapshot
 from src.brain.core.state import bot_state
 from src.brain.memory.tools import register_memory_capabilities
@@ -31,7 +31,7 @@ async def startup_agent() -> None:
 
     Config.ensure_dirs()
     clear()
-    reset_app_hints()
+    reset_app_planning_hints()
     bot_state.reset()
     if not (Config.QUEUES_RESTORE_ON_START and restore_runtime_snapshot()):
         reset_runtime_queues()
