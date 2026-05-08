@@ -5,14 +5,14 @@ import contextlib
 
 from nonebot import get_driver
 
-from src.applications.alarm import AlarmApplication
-from src.applications.diary import DiaryApplication
-from src.applications.mcp_container import MCPContainer
-from src.applications.qq import QQApplication
 from src.brain.platform.application_host import app_host
 from src.brain.platform.loop import run_loop
 from src.config import Config
 from src.utils.Logger import get_logger
+
+from apps.alarm import AlarmApplication
+from apps.diary import DiaryApplication
+from apps.qq import QQApplication
 
 logger = get_logger("Main")
 driver = get_driver()
@@ -32,8 +32,6 @@ async def startup_agent() -> None:
         await app_host.register(DiaryApplication())
     if Config.ENABLE_ALARM_SERVICE:
         await app_host.register(AlarmApplication())
-    if Config.ENABLE_MCP_CONTAINER:
-        await app_host.register(MCPContainer())
 
     _stop_event = asyncio.Event()
     _engine_task = asyncio.create_task(
