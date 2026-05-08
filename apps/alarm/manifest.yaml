@@ -1,7 +1,7 @@
 package: im.polaris.alarm
-name: 提醒
+name: 时钟
 version: 1.0.0
-brain_version: ">=4.1.0"
+brain_version: ">=5.0.0"
 persona_hint: >-
   通过这个应用，你可以创建提醒和日记提示。它们触发后会变成待处理意图，
   再由 brain 判断如何处置。
