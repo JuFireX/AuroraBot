@@ -88,13 +88,32 @@ async def main() -> None:
         help="要注册的应用，支持 qq diary alarm",
     )
     parser.add_argument(
-        "--command", help="要调用的完整命令名，如 im.polaris.diary.write_diary"
+        "--command",
+        help="要调用的完整命令名，如 im.polaris.diary.write_diary",
     )
-    parser.add_argument("--payload", help="命令或事件的 JSON 参数")
-    parser.add_argument("--event-type", help="要发出的事件类型，如 message.received")
-    parser.add_argument("--event-source", help="事件来源包名，如 im.polaris.qq")
-    parser.add_argument("--session-id", default="", help="事件 session_id")
-    parser.add_argument("--ticks", type=int, default=0, help="额外执行多少次应用 tick")
+    parser.add_argument(
+        "--payload",
+        help="命令或事件的 JSON 参数",
+    )
+    parser.add_argument(
+        "--event-type",
+        help="要发出的事件类型，如 message.received",
+    )
+    parser.add_argument(
+        "--event-source",
+        help="事件来源包名，如 im.polaris.qq",
+    )
+    parser.add_argument(
+        "--session-id",
+        default="",
+        help="事件 session_id",
+    )
+    parser.add_argument(
+        "--ticks",
+        type=int,
+        default=0,
+        help="额外执行多少次应用 tick",
+    )
     args = parser.parse_args()
 
     Config.ensure_dirs()
