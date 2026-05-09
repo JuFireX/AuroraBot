@@ -7,7 +7,7 @@ app_desc: >-
   所以后续内核通常需要结合上下文判断节奏、语气与是否回复；短时间内同一会话
   的多条消息往往应综合理解后再处理。如果需要分多条发送，应调用多次发送命令，
   而不是把多条内容拼进同一个 text 字段。
-tools:
+commands:
   - name: send_qq_message
     description: 向一个 QQ 群或会话发送文本消息。
     parameters:

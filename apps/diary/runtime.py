@@ -59,6 +59,7 @@ class DiaryApplication:
                 AppEvent(
                     source=self._api.package,
                     type="diary.written",
+                    summary=summary.strip(),
                     payload=record,
                 )
             )

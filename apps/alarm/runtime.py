@@ -97,6 +97,7 @@ class AlarmApplication:
                     source=api.package,
                     type=todo_type,
                     session_id=str(payload.get("session_id", "")),
+                    summary=str(payload.get("message", "")).strip(),
                     payload=payload,
                 )
             )

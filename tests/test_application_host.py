@@ -39,6 +39,8 @@ class ApplicationHostTest(unittest.TestCase):
             event_types = {event.type for event in events}
             self.assertIn("alarm_reminder", event_types)
             self.assertTrue(all(event.source == "im.polaris.alarm" for event in events))
+            self.assertTrue(all(event.summary for event in events))
+            self.assertTrue(all(event.expire_at is None for event in events))
             await host.stop_all()
 
         asyncio.run(scenario())
@@ -57,6 +59,8 @@ class ApplicationHostTest(unittest.TestCase):
             events = host.peek_events()
             self.assertEqual(len(events), 1)
             self.assertEqual(events[0].type, "diary.written")
+            self.assertEqual(events[0].summary, "测试记录")
+            self.assertIsNone(events[0].expire_at)
             await host.stop_all()
 
         asyncio.run(scenario())

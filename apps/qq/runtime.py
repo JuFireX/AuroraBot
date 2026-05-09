@@ -114,6 +114,7 @@ class QQApplication:
                 source=api.package,
                 type="message.received",
                 session_id=session_id,
+                summary=text.strip(),
                 payload={
                     "session_id": session_id,
                     "text": text,

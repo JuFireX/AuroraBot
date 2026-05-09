@@ -8,16 +8,16 @@ import yaml
 
 
 @dataclass(slots=True)
-class ToolSpec:
+class CommandDecl:
     name: str
     description: str
     parameters: dict[str, dict[str, Any]] = field(default_factory=dict)
     returns: dict[str, dict[str, Any]] = field(default_factory=dict)
     side_effects: list[str] = field(default_factory=list)
 
-    # 从字典创建ToolSpec
+    # 从字典创建命令声明
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ToolSpec":
+    def from_dict(cls, payload: dict[str, Any]) -> "CommandDecl":
         return cls(
             name=str(payload.get("name", "")).strip(),
             description=str(payload.get("description", "")).strip(),
@@ -30,7 +30,7 @@ class ToolSpec:
             ],
         )
 
-    # 将ToolSpec转换为参数模式
+    # 将命令声明转换为参数模式
     def to_parameters_schema(self) -> dict[str, Any]:
         properties = {
             name: _schema_from_field(spec) for name, spec in self.parameters.items()
@@ -42,7 +42,7 @@ class ToolSpec:
         ]
         return {"type": "object", "properties": properties, "required": required}
 
-    # 将ToolSpec转换为返回模式
+    # 将命令声明转换为返回模式
     def to_returns_schema(self) -> dict[str, Any]:
         return {
             "type": "object",
@@ -59,41 +59,28 @@ class Manifest:
     version: str
     brain_version: str
     app_desc: str = ""
-    tools: list[ToolSpec] = field(default_factory=list)
+    commands: list[CommandDecl] = field(default_factory=list)
     type: str = "application"
 
     @classmethod
     def load(cls, path: Path) -> "Manifest":
         raw_payload = yaml.safe_load(path.read_text(encoding="utf-8-sig"))
         payload = raw_payload if isinstance(raw_payload, dict) else {}
-        raw_tools = payload.get("tools")
-        if not isinstance(raw_tools, list):
-            raw_tools = payload.get("commands", [])
-        tools = [
-            ToolSpec.from_dict(item) for item in raw_tools if isinstance(item, dict)
+        raw_commands = payload.get("commands", [])
+        if not isinstance(raw_commands, list):
+            raw_commands = []
+        commands = [
+            CommandDecl.from_dict(item)
+            for item in raw_commands
+            if isinstance(item, dict)
         ]
-        app_desc = str(payload.get("app_desc", "")).strip()
-        if not app_desc:
-            legacy_parts: list[str] = []
-            for key in ("persona_hint", "planning_hint"):
-                value = str(payload.get(key, "")).strip()
-                if value:
-                    legacy_parts.append(value)
-            raw_capabilities = payload.get("capabilities", [])
-            if isinstance(raw_capabilities, list):
-                items = [
-                    str(item).strip() for item in raw_capabilities if str(item).strip()
-                ]
-                if items:
-                    legacy_parts.append("能力标签: " + ", ".join(items))
-            app_desc = "\n".join(legacy_parts).strip()
         return cls(
             package=str(payload.get("package", "")).strip(),
             name=str(payload.get("name", "")).strip(),
             version=str(payload.get("version", "0.0.0")).strip(),
             brain_version=str(payload.get("brain_version", "")).strip(),
-            app_desc=app_desc,
-            tools=tools,
+            app_desc=str(payload.get("app_desc", "")).strip(),
+            commands=commands,
             type=str(payload.get("type", "application")).strip() or "application",
         )
 

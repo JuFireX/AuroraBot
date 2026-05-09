@@ -12,10 +12,11 @@ class AppEvent:
     source: str
     type: str
     session_id: str = ""
+    summary: str = ""
     payload: dict[str, Any] = field(default_factory=dict)
+    expire_at: float | None = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     created_at: float = field(default_factory=time.time)
-    # TODO: 增加summary, last_time字段
 
 
 @dataclass(slots=True)

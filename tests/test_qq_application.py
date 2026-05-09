@@ -25,6 +25,8 @@ class QQApplicationTest(unittest.TestCase):
             event = events[0]
             self.assertEqual(event.type, "message.received")
             self.assertEqual(event.source, "im.polaris.qq")
+            self.assertEqual(event.summary, "你好")
+            self.assertIsNone(event.expire_at)
             self.assertEqual(event.payload["text"], "你好")
             await host.stop_all()
 

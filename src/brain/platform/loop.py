@@ -17,7 +17,7 @@ async def run_loop(
         try:
             await host.tick()
         except Exception as exc:  # noqa: BLE001
-            logger.error("Application loop tick failed: %s", exc)
+            logger.error(f"应用帧错误: {exc}")
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=max(0.05, interval))
         except asyncio.TimeoutError:

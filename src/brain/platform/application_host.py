@@ -8,7 +8,7 @@ from typing import Any
 from src.brain.platform.application_api import PlatformAPI
 from src.brain.platform.contracts import AppEvent, CommandSpec
 from src.brain.platform.application_protocol import ApplicationProtocol
-from src.brain.platform.manifest import Manifest, ToolSpec
+from src.brain.platform.manifest import CommandDecl, Manifest
 from src.utils.Logger import get_logger
 
 logger = get_logger("ApplicationHost")
@@ -28,18 +28,18 @@ class ApplicationHost:
         if manifest.package in self._apps:
             logger.warning(f"应用 {manifest.package} 已注册")
             return
-        for tool_spec in manifest.tools:
-            handler = getattr(app, tool_spec.name, None)
+        for command_decl in manifest.commands:
+            handler = getattr(app, command_decl.name, None)
             if handler is None:
                 raise AttributeError(
-                    f"{app.__class__.__name__} 缺少方法 {tool_spec.name}"
+                    f"{app.__class__.__name__} 缺少方法 {command_decl.name}"
                 )
             self.register_command(
                 CommandSpec(
-                    name=f"{manifest.package}.{tool_spec.name}",
-                    description=_build_command_description(tool_spec),
-                    parameters_schema=tool_spec.to_parameters_schema(),
-                    returns_schema=tool_spec.to_returns_schema(),
+                    name=f"{manifest.package}.{command_decl.name}",
+                    description=_build_command_description(command_decl),
+                    parameters_schema=command_decl.to_parameters_schema(),
+                    returns_schema=command_decl.to_returns_schema(),
                     handler=handler,
                 )
             )
@@ -122,11 +122,11 @@ async def _maybe_await(result: Any) -> Any:
 
 
 # 命令描述构建
-def _build_command_description(tool_spec: ToolSpec) -> str:
-    lines = [tool_spec.description.strip()]
-    if tool_spec.side_effects:
+def _build_command_description(command_decl: CommandDecl) -> str:
+    lines = [command_decl.description.strip()]
+    if command_decl.side_effects:
         lines.append("副作用/Side effects:")
-        lines.extend(f"- {item}" for item in tool_spec.side_effects)
+        lines.extend(f"- {item}" for item in command_decl.side_effects)
     return "\n".join(line for line in lines if line).strip()
 
 
