@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+
+from src.utils.time_utils import now_text
 
 
 @dataclass(slots=True)
@@ -14,9 +15,9 @@ class AppEvent:
     session_id: str = ""
     summary: str = ""
     payload: dict[str, Any] = field(default_factory=dict)
-    expire_at: float | None = None
+    expire_at: str | None = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    created_at: float = field(default_factory=time.time)
+    created_at: str = field(default_factory=now_text)
 
 
 @dataclass(slots=True)

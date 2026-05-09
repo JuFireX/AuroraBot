@@ -41,6 +41,10 @@ class ApplicationHostTest(unittest.TestCase):
             self.assertTrue(all(event.source == "im.polaris.alarm" for event in events))
             self.assertTrue(all(event.summary for event in events))
             self.assertTrue(all(event.expire_at is None for event in events))
+            self.assertTrue(all(isinstance(event.created_at, str) for event in events))
+            self.assertTrue(
+                all(isinstance(event.payload.get("next_trigger_at"), str) for event in events)
+            )
             await host.stop_all()
 
         asyncio.run(scenario())
@@ -61,6 +65,8 @@ class ApplicationHostTest(unittest.TestCase):
             self.assertEqual(events[0].type, "diary.written")
             self.assertEqual(events[0].summary, "测试记录")
             self.assertIsNone(events[0].expire_at)
+            self.assertIsInstance(events[0].created_at, str)
+            self.assertIsInstance(events[0].payload["created_at"], str)
             await host.stop_all()
 
         asyncio.run(scenario())

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from src.brain.platform.contracts import AppEvent
 from src.config import Config
 from src.utils.Logger import get_logger
+from src.utils.time_utils import from_epoch_seconds, to_epoch_seconds
 
 if TYPE_CHECKING:
     from src.brain.platform.application_api import PlatformAPI
@@ -56,8 +57,9 @@ class AlarmApplication:
             "enabled": True,
             "interval_seconds": interval_seconds
             or Config.ALARM_DEFAULT_INTERVAL_SECONDS,
-            "next_trigger_at": now
-            + (interval_seconds or Config.ALARM_DEFAULT_INTERVAL_SECONDS),
+            "next_trigger_at": from_epoch_seconds(
+                now + (interval_seconds or Config.ALARM_DEFAULT_INTERVAL_SECONDS)
+            ),
             "last_triggered_at": None,
             "alarm_type": alarm_type,
             "target": {},
@@ -73,7 +75,8 @@ class AlarmApplication:
         for alarm in self._alarms:
             if not alarm.get("enabled", True):
                 continue
-            if float(alarm.get("next_trigger_at", now + 1)) > now:
+            next_trigger_at = to_epoch_seconds(alarm.get("next_trigger_at"), now + 1)
+            if next_trigger_at is None or next_trigger_at > now:
                 continue
             payload = dict(alarm)
             target = payload.get("target", {})
@@ -104,8 +107,8 @@ class AlarmApplication:
             interval_seconds = float(
                 payload.get("interval_seconds", Config.ALARM_DEFAULT_INTERVAL_SECONDS)
             )
-            alarm["last_triggered_at"] = now
-            alarm["next_trigger_at"] = now + interval_seconds
+            alarm["last_triggered_at"] = from_epoch_seconds(now)
+            alarm["next_trigger_at"] = from_epoch_seconds(now + interval_seconds)
             changed = True
         if changed:
             self._save_alarms()
@@ -114,7 +117,8 @@ class AlarmApplication:
         if self._alarms_file is None or not self._alarms_file.exists():
             return
         try:
-            self._alarms = json.loads(self._alarms_file.read_text(encoding="utf-8-sig"))
+            loaded = json.loads(self._alarms_file.read_text(encoding="utf-8-sig"))
+            self._alarms = [dict(item) for item in loaded if isinstance(item, dict)]
         except Exception:
             self._alarms = []
 
@@ -136,7 +140,9 @@ class AlarmApplication:
                 "message": "Time to stretch.",
                 "enabled": True,
                 "interval_seconds": Config.ALARM_DEFAULT_INTERVAL_SECONDS,
-                "next_trigger_at": now + Config.ALARM_DEFAULT_INTERVAL_SECONDS,
+                "next_trigger_at": from_epoch_seconds(
+                    now + Config.ALARM_DEFAULT_INTERVAL_SECONDS
+                ),
                 "last_triggered_at": None,
                 "alarm_type": "generic",
                 "target": {},
@@ -150,7 +156,7 @@ class AlarmApplication:
                 "date": time.strftime("%Y-%m-%d"),
                 "enabled": True,
                 "interval_seconds": 86400,
-                "next_trigger_at": now + diary_interval,
+                "next_trigger_at": from_epoch_seconds(now + diary_interval),
                 "last_triggered_at": None,
                 "alarm_type": "diary_prompt",
                 "target": {},

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -10,6 +9,7 @@ from nonebot import get_bot, get_bots, on_message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageEvent
 
 from src.brain.platform.contracts import AppEvent
+from src.utils.time_utils import now_text
 from src.utils.Logger import get_logger
 
 if TYPE_CHECKING:
@@ -131,7 +131,7 @@ class QQApplication:
         target = self._session_targets.get(str(session_id))
         if target is None:
             logger.warning("Missing target for session %s; logging only", session_id)
-            return {"success": False, "delivered_at": time.time()}
+            return {"success": False, "delivered_at": now_text()}
         if bool(target.get("is_group")):
             await self._send_group_message(
                 group_id=str(target.get("group_id", session_id)),
@@ -147,9 +147,11 @@ class QQApplication:
                 bot_id=str(target.get("bot_id", "")),
                 session_id=str(session_id),
             )
-        return {"success": True, "delivered_at": time.time()}
+        return {"success": True, "delivered_at": now_text()}
 
-    async def send_qq_private_message(self, user_id: str, text: str) -> dict[str, object]:
+    async def send_qq_private_message(
+        self, user_id: str, text: str
+    ) -> dict[str, object]:
         session_id = str(user_id)
         target = self._session_targets.get(session_id, {})
         await self._send_private_message(
@@ -160,7 +162,9 @@ class QQApplication:
         )
         return {"success": True}
 
-    async def at_user_in_group(self, group_id: str, user_id: str, text: str) -> dict[str, object]:
+    async def at_user_in_group(
+        self, group_id: str, user_id: str, text: str
+    ) -> dict[str, object]:
         session_id = str(group_id)
         target = self._session_targets.get(session_id, {})
         final_text = f"[CQ:at,qq={user_id}] {text}".strip()
@@ -225,7 +229,9 @@ class QQApplication:
             if bot_id:
                 return get_bot(bot_id)
         except Exception:
-            logger.warning("Bot %s not found; falling back to the first active bot", bot_id)
+            logger.warning(
+                "Bot %s not found; falling back to the first active bot", bot_id
+            )
         try:
             bots = get_bots()
         except Exception:
@@ -254,7 +260,7 @@ class QQApplication:
                 "is_group": is_group,
                 "group_id": group_id,
                 "bot_id": bot_id,
-                "created_at": time.time(),
+                "created_at": now_text(),
             }
         )
         max_events = max(20, 4 * 50)
@@ -262,7 +268,8 @@ class QQApplication:
             self._events = self._events[-max_events:]
 
     def _load_persistent_state(self) -> None:
-        self._events = self._read_json(self._events_file, [])
+        loaded_events = self._read_json(self._events_file, [])
+        self._events = [dict(item) for item in loaded_events if isinstance(item, dict)]
         self._session_targets = self._read_json(self._targets_file, {})
 
     def _save_persistent_state(self) -> None:
@@ -293,7 +300,9 @@ class QQApplication:
         if file_path is None:
             return
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        file_path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     def _require_api(self) -> "PlatformAPI":
         if self._api is None:
