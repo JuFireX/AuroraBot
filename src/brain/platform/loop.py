@@ -8,7 +8,7 @@ from src.utils.Logger import get_logger
 logger = get_logger("ApplicationLoop")
 
 
-async def run_loop(
+async def run_app_loop(
     host: ApplicationHost,
     stop_event: asyncio.Event,
     interval: float,

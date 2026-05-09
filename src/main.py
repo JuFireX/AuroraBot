@@ -6,7 +6,7 @@ import contextlib
 from nonebot import get_driver
 
 from src.brain.platform.application_host import app_host
-from src.brain.platform.loop import run_loop
+from src.brain.platform.loop import run_app_loop
 from src.config import Config
 from src.utils.Logger import get_logger
 
@@ -34,10 +34,19 @@ async def startup_agent() -> None:
         await app_host.register(AlarmApplication())
 
     _stop_event = asyncio.Event()
-    _engine_task = asyncio.create_task(
-        run_loop(app_host, _stop_event, Config.HEARTBEAT_INTERVAL)
-    )
-    logger.info("应用框架已启动")
+
+    if Config.RUN_MODE in ["app", "prod"]:
+        # 启动应用循环
+        _engine_task = asyncio.create_task(
+            run_app_loop(app_host, _stop_event, Config.APP_FRAME_INTERVAL)
+        )
+        logger.info("应用循环已启动")
+
+    if Config.RUN_MODE in ["core", "prod"]:
+        # TODO: 启动agent循环
+        # asyncio.create_task(run_agent_loop(_stop_event, Config.HEARTBEAT_INTERVAL))
+        # logger.info("Agent循环已启动")
+        pass
 
 
 @driver.on_shutdown
@@ -51,5 +60,10 @@ async def shutdown_agent() -> None:
         with contextlib.suppress(asyncio.CancelledError):
             await _engine_task
     _engine_task = None
+
+    # 等待应用循环结束
     await app_host.stop_all()
-    logger.info("应用框架已停止")
+    logger.info("应用循环已中止")
+
+    # TODO: 等待agent循环结束
+    # logger.info("Agent循环已中止")
