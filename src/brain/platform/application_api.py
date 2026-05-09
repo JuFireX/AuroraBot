@@ -23,7 +23,7 @@ class PlatformAPI:
         self._host.emit_event(event)
 
     def post_intention(self, event: AppEvent) -> None:
-        # 兼容旧命名：应用对内核上报的是事件，而不是旧 PAA 的 TodoItem。
+        # 兼容旧命名: 应用对内核上报的是事件, 而不是旧 PAA 的 TodoItem.
         self.emit_event(event)
 
     # 注册命令

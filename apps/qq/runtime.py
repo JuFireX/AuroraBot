@@ -277,7 +277,7 @@ class QQApplication:
         self._write_json(self._targets_file, self._session_targets)
 
     def _split_reply_segments(self, reply: str) -> list[str]:
-        # 兼容旧输出：主设计应由 brain 直接产出多条发送动作，这里只保留对历史 "|" 写法的兜底拆分。
+        # 兼容旧输出: 主设计应由 brain 直接产出多条发送动作, 这里只保留对历史 "|" 写法的兜底拆分.
         parts = [part.strip() for part in reply.split("|")]
         parts = [part for part in parts if part]
         return parts or [reply]

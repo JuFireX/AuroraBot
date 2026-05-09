@@ -24,35 +24,37 @@ def app_config_path() -> Path:
 def load_apps_config(path: Path | None = None) -> dict[str, dict[str, Any]]:
     config_path = path or app_config_path()
     discovered = discover_apps()
+
+    # 当配置文件不存在时, 根据发现的应用生成初始化配置并返回
     if not config_path.exists():
         _write_initial_config(config_path, discovered)
         logger.warning(
-            "未找到 apps/config.yaml，已根据扫描结果生成初始化配置；本次不加载任何应用"
+            "未找到 apps/config.yaml, 已根据扫描结果生成初始化配置; 本次不加载任何应用"
         )
         return {}
     try:
         loaded = yaml.safe_load(config_path.read_text(encoding="utf-8-sig"))
     except Exception as exc:  # noqa: BLE001
-        logger.warning("读取 apps/config.yaml 失败，本次不加载任何应用: %s", exc)
+        logger.warning("读取 apps/config.yaml 失败, 本次不加载任何应用: %s", exc)
         return {}
     payload = loaded if isinstance(loaded, dict) else {}
     raw_apps = payload.get("apps", {})
     if not isinstance(raw_apps, dict):
-        logger.warning("apps/config.yaml 的 apps 字段不是映射，本次不加载任何应用")
+        logger.warning("apps/config.yaml 的 apps 字段不是映射, 本次不加载任何应用")
         return {}
 
     normalized: dict[str, dict[str, Any]] = {}
     for name in sorted(discovered):
         raw = raw_apps.get(name)
         if raw is None:
-            logger.warning("应用 %s 未在 apps/config.yaml 中声明，跳过加载", name)
+            logger.warning("应用 %s 未在 apps/config.yaml 中声明, 跳过加载", name)
             continue
         if not isinstance(raw, dict):
-            logger.warning("应用 %s 的配置不是对象，跳过加载", name)
+            logger.warning("应用 %s 的配置不是对象, 跳过加载", name)
             continue
         startup = raw.get("startup", {})
         if not isinstance(startup, dict):
-            logger.warning("应用 %s 的 startup 字段不是对象，已重置为空", name)
+            logger.warning("应用 %s 的 startup 字段不是对象, 已重置为空", name)
             startup = {}
         normalized[name] = {
             "enabled": bool(raw.get("enabled", False)),
@@ -60,7 +62,7 @@ def load_apps_config(path: Path | None = None) -> dict[str, dict[str, Any]]:
         }
 
     for name in sorted(set(raw_apps) - set(discovered)):
-        logger.warning("apps/config.yaml 中声明了未知应用 %s，已忽略", name)
+        logger.warning("apps/config.yaml 中声明了未知应用 %s, 已忽略", name)
     return normalized
 
 

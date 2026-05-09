@@ -82,11 +82,11 @@ async def main() -> None:
     parser.add_argument(
         "--apps",
         nargs="+",
-        help="要注册的应用目录名；不传时读取 apps/config.yaml 的 enabled=true",
+        help="要注册的应用目录名; 不传时读取 apps/config.yaml 的 enabled=true",
     )
     parser.add_argument(
         "--command",
-        help="要调用的完整命令名，如 im.polaris.diary.write_diary",
+        help="要调用的完整命令名, 如 im.polaris.diary.write_diary",
     )
     parser.add_argument(
         "--payload",
@@ -94,11 +94,11 @@ async def main() -> None:
     )
     parser.add_argument(
         "--event-type",
-        help="要发出的事件类型，如 message.received",
+        help="要发出的事件类型, 如 message.received",
     )
     parser.add_argument(
         "--event-source",
-        help="事件来源包名，如 im.polaris.qq",
+        help="事件来源包名, 如 im.polaris.qq",
     )
     parser.add_argument(
         "--session-id",

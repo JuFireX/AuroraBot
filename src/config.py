@@ -35,7 +35,7 @@ class Config:
 
     # 日志配置
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
-    # 兼容旧配置 AI_QUERY_DEBUG，同时提供更明确的 LLM 请求/响应日志开关。
+    # 兼容旧配置 AI_QUERY_DEBUG, 同时提供更明确的 LLM 请求/响应日志开关.
     LLM_LOG_QUERY: bool = _get_bool(
         "LLM_LOG_QUERY",
         _get_bool("AI_QUERY_DEBUG", False),

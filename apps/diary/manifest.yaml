@@ -3,15 +3,15 @@ name: 日记
 version: 1.0.0
 brain_version: ">=4.1.0"
 app_desc: >-
-  这个应用负责把经历、互动和感受写成结构化日记。它是一个纯持久化写入应用，
-  自己不做认知推理，但很适合与提醒、聊天记录整理等流程联动。
+  这个应用负责把经历、互动和感受写成结构化日记. 它是一个纯持久化写入应用, 
+  自己不做认知推理, 但很适合与提醒、聊天记录整理等流程联动.
 commands:
   - name: write_diary
-    description: 写入结构化日记记录，并将日记数据保存到本地存储。
+    description: 写入结构化日记记录, 并将日记数据保存到本地存储.
     parameters:
       date:
         type: string
-        description: 日期，格式 YYYY-MM-DD
+        description: 日期, 格式 YYYY-MM-DD
         required: true
       summary:
         type: string
