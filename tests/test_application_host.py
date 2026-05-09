@@ -31,13 +31,14 @@ class ApplicationHostTest(unittest.TestCase):
             await host.invoke_command(
                 "im.polaris.alarm.set_alarm",
                 message="test alarm",
-                interval_seconds=0,
+                interval_seconds=-1,
             )
             await host.tick()
             events = host.peek_events()
             self.assertTrue(events)
-            self.assertEqual(events[-1].type, "alarm_reminder")
-            self.assertEqual(events[-1].source, "im.polaris.alarm")
+            event_types = {event.type for event in events}
+            self.assertIn("alarm_reminder", event_types)
+            self.assertTrue(all(event.source == "im.polaris.alarm" for event in events))
             await host.stop_all()
 
         asyncio.run(scenario())

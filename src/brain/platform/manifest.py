@@ -15,6 +15,7 @@ class ToolSpec:
     returns: dict[str, dict[str, Any]] = field(default_factory=dict)
     side_effects: list[str] = field(default_factory=list)
 
+    # 从字典创建ToolSpec
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "ToolSpec":
         return cls(
@@ -29,6 +30,7 @@ class ToolSpec:
             ],
         )
 
+    # 将ToolSpec转换为参数模式
     def to_parameters_schema(self) -> dict[str, Any]:
         properties = {
             name: _schema_from_field(spec) for name, spec in self.parameters.items()
@@ -40,6 +42,7 @@ class ToolSpec:
         ]
         return {"type": "object", "properties": properties, "required": required}
 
+    # 将ToolSpec转换为返回模式
     def to_returns_schema(self) -> dict[str, Any]:
         return {
             "type": "object",
@@ -55,9 +58,7 @@ class Manifest:
     name: str
     version: str
     brain_version: str
-    persona_hint: str = ""
-    planning_hint: str = ""
-    capabilities: list[str] = field(default_factory=list)
+    app_desc: str = ""
     tools: list[ToolSpec] = field(default_factory=list)
     type: str = "application"
 
@@ -69,27 +70,35 @@ class Manifest:
         if not isinstance(raw_tools, list):
             raw_tools = payload.get("commands", [])
         tools = [
-            ToolSpec.from_dict(item)
-            for item in raw_tools
-            if isinstance(item, dict)
+            ToolSpec.from_dict(item) for item in raw_tools if isinstance(item, dict)
         ]
+        app_desc = str(payload.get("app_desc", "")).strip()
+        if not app_desc:
+            legacy_parts: list[str] = []
+            for key in ("persona_hint", "planning_hint"):
+                value = str(payload.get(key, "")).strip()
+                if value:
+                    legacy_parts.append(value)
+            raw_capabilities = payload.get("capabilities", [])
+            if isinstance(raw_capabilities, list):
+                items = [
+                    str(item).strip() for item in raw_capabilities if str(item).strip()
+                ]
+                if items:
+                    legacy_parts.append("能力标签: " + ", ".join(items))
+            app_desc = "\n".join(legacy_parts).strip()
         return cls(
             package=str(payload.get("package", "")).strip(),
             name=str(payload.get("name", "")).strip(),
             version=str(payload.get("version", "0.0.0")).strip(),
             brain_version=str(payload.get("brain_version", "")).strip(),
-            persona_hint=str(payload.get("persona_hint", "")).strip(),
-            planning_hint=str(payload.get("planning_hint", "")).strip(),
-            capabilities=[
-                str(item)
-                for item in payload.get("capabilities", [])
-                if str(item).strip()
-            ],
+            app_desc=app_desc,
             tools=tools,
             type=str(payload.get("type", "application")).strip() or "application",
         )
 
 
+# 归一化映射
 def _normalize_mapping(raw: object) -> dict[str, dict[str, Any]]:
     if not isinstance(raw, dict):
         return {}
@@ -102,6 +111,7 @@ def _normalize_mapping(raw: object) -> dict[str, dict[str, Any]]:
     return normalized
 
 
+# 将字段规格转换为JSON模式
 def _schema_from_field(spec: dict[str, Any]) -> dict[str, Any]:
     schema = {"type": str(spec.get("type", "string"))}
     description = str(spec.get("description", "")).strip()

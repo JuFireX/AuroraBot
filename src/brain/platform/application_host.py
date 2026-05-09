@@ -22,18 +22,17 @@ class ApplicationHost:
         self._events: deque[AppEvent] = deque()
 
     async def register(self, app: ApplicationProtocol) -> None:
-        if not isinstance(app, ApplicationProtocol):
-            raise TypeError(f"{app.__class__.__name__} does not satisfy ApplicationProtocol")
         manifest = Manifest.load(app.manifest_path())
         if not manifest.package:
-            raise ValueError(f"Manifest package is required: {app.manifest_path()}")
+            raise ValueError(f"需要在manifest中指定package字段: {app.manifest_path()}")
         if manifest.package in self._apps:
+            logger.warning(f"应用 {manifest.package} 已注册")
             return
         for tool_spec in manifest.tools:
             handler = getattr(app, tool_spec.name, None)
             if handler is None:
                 raise AttributeError(
-                    f"{app.__class__.__name__} is missing method declared in manifest: {tool_spec.name}"
+                    f"{app.__class__.__name__} 缺少方法 {tool_spec.name}"
                 )
             self.register_command(
                 CommandSpec(
@@ -52,21 +51,18 @@ class ApplicationHost:
         await _maybe_await(app.on_start())
         self._apps[manifest.package] = app
         self._manifests[manifest.package] = manifest
-        logger.info("Application registered: %s (%s)", manifest.name, manifest.package)
+        logger.info(f"已注册应用: {manifest.package}")
 
     def register_command(self, spec: CommandSpec) -> None:
         if not spec.name.strip():
-            raise ValueError("Command name is required")
+            raise ValueError("命令名称不能为空")
         self._commands[spec.name] = spec
 
     def emit_event(self, event: AppEvent) -> None:
         self._events.append(event)
-        logger.info(
-            "Application event emitted: %s (%s)",
-            event.type,
-            event.source,
-        )
+        logger.info(f"已推送应用事件: {event.type}")
 
+    # 从事件队列中提取事件
     def drain_events(self, limit: int | None = None) -> list[AppEvent]:
         drained: list[AppEvent] = []
         remaining = limit if limit is not None and limit >= 0 else None
@@ -91,10 +87,12 @@ class ApplicationHost:
     def iter_manifests(self) -> Iterable[Manifest]:
         return self._manifests.values()
 
+    # 执行命令
     async def invoke_command(self, command_name: str, **kwargs: Any) -> Any:
         spec = self._commands.get(command_name)
         if spec is None:
             raise KeyError(f"Unknown command: {command_name}")
+        logger.info(f"执行命令: {command_name}")
         return await _maybe_await(spec.handler(**kwargs))
 
     async def tick(self) -> None:
@@ -102,18 +100,19 @@ class ApplicationHost:
             try:
                 await _maybe_await(app.on_tick())
             except Exception as exc:  # noqa: BLE001
-                logger.error("Application tick failed [%s]: %s", package, exc)
+                logger.warning(f"应用 {package} 执行 on_tick 失败: {exc}")
 
     async def stop_all(self) -> None:
         for package, app in reversed(list(self._apps.items())):
             try:
                 await _maybe_await(app.on_stop())
             except Exception as exc:  # noqa: BLE001
-                logger.error("Application stop failed [%s]: %s", package, exc)
+                logger.warning(f"应用 {package} 执行 on_stop 失败: {exc}")
         self._apps.clear()
         self._manifests.clear()
         self._commands.clear()
         self._events.clear()
+        logger.info("已注销所有应用")
 
 
 async def _maybe_await(result: Any) -> Any:
@@ -122,10 +121,11 @@ async def _maybe_await(result: Any) -> Any:
     return result
 
 
+# 命令描述构建
 def _build_command_description(tool_spec: ToolSpec) -> str:
     lines = [tool_spec.description.strip()]
     if tool_spec.side_effects:
-        lines.append("Side effects:")
+        lines.append("副作用/Side effects:")
         lines.extend(f"- {item}" for item in tool_spec.side_effects)
     return "\n".join(line for line in lines if line).strip()
 

@@ -2,14 +2,9 @@ package: im.polaris.diary
 name: 日记
 version: 1.0.0
 brain_version: ">=4.1.0"
-persona_hint: >-
-  通过这个应用，你可以记录当天的经历、互动和感受。
-planning_hint: >-
-  处理日记相关事务时，真正的完成动作是 `write_diary`。它是一个纯持久化写入
-  命令，不负责额外的认知推理。
-capabilities:
-  - diary.write
-  - memory.write
+app_desc: >-
+  这个应用负责把经历、互动和感受写成结构化日记。它是一个纯持久化写入应用，
+  自己不做认知推理，但很适合与提醒、聊天记录整理等流程联动。
 tools:
   - name: write_diary
     description: 写入结构化日记记录。

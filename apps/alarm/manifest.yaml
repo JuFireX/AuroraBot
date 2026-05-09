@@ -2,15 +2,10 @@ package: im.polaris.alarm
 name: 时钟
 version: 1.0.0
 brain_version: ">=5.0.0"
-persona_hint: >-
-  通过这个应用，你可以创建提醒和日记提示。它们触发后会变成待处理意图，
-  再由 brain 判断如何处置。
-planning_hint: >-
-  处理提醒时，目标是让提醒被真正处置，而不是只读取上下文。若提醒带有
-  session_id，通常应通过发送类工具把提醒发出去；若没有可通知对象，再退化为
-  记录或收尾动作。
-capabilities:
-  - alarm.schedule
+app_desc: >-
+  这个应用负责创建提醒和日记提示，并在到点时发出事件。它更像一个时序事件源，
+  适合和消息、记录等其他应用联动；如果提醒携带 session_id，后续内核通常可以
+  结合发送类命令把提醒发到对应目标。
 tools:
   - name: set_alarm
     description: 设置一个会在未来触发的提醒。

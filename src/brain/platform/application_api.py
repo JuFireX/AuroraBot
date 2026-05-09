@@ -18,6 +18,7 @@ class PlatformAPI:
         self._host = host
         self._logger = get_logger(f"AppAPI:{manifest.package}")
 
+    # 推送APP事件到内核
     def emit_event(self, event: AppEvent) -> None:
         self._host.emit_event(event)
 
@@ -25,6 +26,7 @@ class PlatformAPI:
         # 兼容旧命名：应用对内核上报的是事件，而不是旧 PAA 的 TodoItem。
         self.emit_event(event)
 
+    # 注册命令
     def register_command(self, spec: CommandSpec) -> None:
         self._host.register_command(spec)
 
