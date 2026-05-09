@@ -1,0 +1,11 @@
+apps:
+  qq:
+    enabled: false
+    startup:
+      enable_listener: true
+  diary:
+    enabled: true
+    startup: {}
+  alarm:
+    enabled: true
+    startup: {}

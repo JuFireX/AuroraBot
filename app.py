@@ -9,30 +9,28 @@ from dataclasses import asdict
 from typing import Any
 
 
+from src.brain.platform.app_discovery import discover_apps, instantiate_app
 from src.brain.platform.application_host import ApplicationHost
+from src.brain.platform.app_config import enabled_app_names, load_apps_config
 from src.brain.platform.contracts import AppEvent
 from src.config import Config
-
-from apps.alarm import AlarmApplication
-from apps.diary import DiaryApplication
-from apps.qq import QQApplication
 
 
 def _build_host() -> ApplicationHost:
     return ApplicationHost()
 
 
-async def _register_selected_apps(host: ApplicationHost, names: list[str]) -> None:
-    mapping = {
-        "qq": QQApplication(enable_listener=False),
-        "diary": DiaryApplication(),
-        "alarm": AlarmApplication(),
-    }
+async def _register_selected_apps(
+    host: ApplicationHost,
+    names: list[str],
+    apps_config: dict[str, dict[str, Any]],
+) -> None:
     for name in names:
-        app = mapping.get(name)
-        if app is None:
+        if name not in discover_apps():
             raise KeyError(f"Unknown application: {name}")
-        await host.register(app)
+        await host.register(
+            instantiate_app(name, apps_config.get(name, {}).get("startup", {}))
+        )
 
 
 def _parse_json(text: str | None) -> dict[str, Any]:
@@ -84,8 +82,7 @@ async def main() -> None:
     parser.add_argument(
         "--apps",
         nargs="+",
-        default=["qq", "diary", "alarm"],
-        help="要注册的应用，支持 qq diary alarm",
+        help="要注册的应用目录名；不传时读取 apps/config.yaml 的 enabled=true",
     )
     parser.add_argument(
         "--command",
@@ -117,8 +114,12 @@ async def main() -> None:
     args = parser.parse_args()
 
     Config.ensure_dirs()
+    apps_config = load_apps_config()
+    selected_apps = (
+        args.apps if args.apps is not None else enabled_app_names(apps_config)
+    )
     host = _build_host()
-    await _register_selected_apps(host, args.apps)
+    await _register_selected_apps(host, selected_apps, apps_config)
 
     try:
         payload = _parse_json(args.payload)

@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from src.brain.platform.contracts import AppEvent
-from src.config import Config
 from src.utils.Logger import get_logger
 from src.utils.time_utils import from_epoch_seconds, to_epoch_seconds
 
@@ -15,22 +14,28 @@ if TYPE_CHECKING:
     from src.brain.platform.application_api import PlatformAPI
 
 logger = get_logger("AlarmApplication")
+DEFAULT_INTERVAL_SECONDS = 1800
+DEFAULT_DIARY_TIME = "22:00"
 
 
 class AlarmApplication:
     def __init__(self) -> None:
         self._api: PlatformAPI | None = None
         self._alarms_file: Path | None = None
+        self._settings_file: Path | None = None
         self._alarms: list[dict[str, Any]] = []
+        self._settings: dict[str, Any] = {}
 
     def _bind(self, api: "PlatformAPI") -> None:
         self._api = api
         self._alarms_file = api.data_dir / "alarms.json"
+        self._settings_file = api.data_dir / "config.json"
 
     def manifest_path(self) -> Path:
         return Path(__file__).with_name("manifest.yaml")
 
     async def on_start(self) -> None:
+        self._load_settings()
         self._load_alarms()
         if not self._alarms:
             self._alarms = self._default_alarms()
@@ -55,10 +60,9 @@ class AlarmApplication:
             "id": str(uuid.uuid4()),
             "message": message,
             "enabled": True,
-            "interval_seconds": interval_seconds
-            or Config.ALARM_DEFAULT_INTERVAL_SECONDS,
+            "interval_seconds": interval_seconds or self._default_interval_seconds(),
             "next_trigger_at": from_epoch_seconds(
-                now + (interval_seconds or Config.ALARM_DEFAULT_INTERVAL_SECONDS)
+                now + (interval_seconds or self._default_interval_seconds())
             ),
             "last_triggered_at": None,
             "alarm_type": alarm_type,
@@ -105,7 +109,7 @@ class AlarmApplication:
                 )
             )
             interval_seconds = float(
-                payload.get("interval_seconds", Config.ALARM_DEFAULT_INTERVAL_SECONDS)
+                payload.get("interval_seconds", self._default_interval_seconds())
             )
             alarm["last_triggered_at"] = from_epoch_seconds(now)
             alarm["next_trigger_at"] = from_epoch_seconds(now + interval_seconds)
@@ -131,18 +135,58 @@ class AlarmApplication:
             encoding="utf-8",
         )
 
+    def _read_json(self, file_path: Path | None, default: Any) -> Any:
+        if file_path is None or not file_path.exists():
+            return default
+        try:
+            return json.loads(file_path.read_text(encoding="utf-8-sig"))
+        except Exception:
+            return default
+
+    def _write_json(self, file_path: Path | None, data: Any) -> None:
+        if file_path is None:
+            return
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def _load_settings(self) -> None:
+        settings = self._read_json(self._settings_file, {})
+        if not isinstance(settings, dict):
+            settings = {}
+        self._settings = {
+            "default_interval_seconds": _to_positive_int(
+                settings.get("default_interval_seconds"), DEFAULT_INTERVAL_SECONDS
+            ),
+            "diary_time": _normalize_diary_time(
+                settings.get("diary_time"), DEFAULT_DIARY_TIME
+            ),
+        }
+        self._write_json(self._settings_file, self._settings)
+
+    def _default_interval_seconds(self) -> int:
+        return _to_positive_int(
+            self._settings.get("default_interval_seconds"), DEFAULT_INTERVAL_SECONDS
+        )
+
+    def _diary_time(self) -> str:
+        return _normalize_diary_time(
+            self._settings.get("diary_time"), DEFAULT_DIARY_TIME
+        )
+
     def _default_alarms(self) -> list[dict[str, Any]]:
         now = time.time()
-        diary_interval = _seconds_until_next_diary_time()
+        default_interval_seconds = self._default_interval_seconds()
+        diary_interval = _seconds_until_next_diary_time(self._diary_time())
         return [
             {
                 "id": "default_stretch_alarm",
                 "message": "Time to stretch.",
                 "enabled": True,
-                "interval_seconds": Config.ALARM_DEFAULT_INTERVAL_SECONDS,
-                "next_trigger_at": from_epoch_seconds(
-                    now + Config.ALARM_DEFAULT_INTERVAL_SECONDS
-                ),
+                "interval_seconds": default_interval_seconds,
+                "next_trigger_at": from_epoch_seconds(now + default_interval_seconds),
                 "last_triggered_at": None,
                 "alarm_type": "generic",
                 "target": {},
@@ -169,9 +213,9 @@ class AlarmApplication:
         return self._api
 
 
-def _seconds_until_next_diary_time() -> int:
+def _seconds_until_next_diary_time(diary_time: str) -> int:
     now = time.localtime()
-    hour_text, minute_text = Config.DIARY_TIME.split(":", maxsplit=1)
+    hour_text, minute_text = diary_time.split(":", maxsplit=1)
     target_hour = int(hour_text)
     target_minute = int(minute_text)
     current_seconds = now.tm_hour * 3600 + now.tm_min * 60 + now.tm_sec
@@ -179,3 +223,26 @@ def _seconds_until_next_diary_time() -> int:
     if target_seconds <= current_seconds:
         return 86400 - current_seconds + target_seconds
     return target_seconds - current_seconds
+
+
+def _to_positive_int(value: Any, default: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def _normalize_diary_time(value: Any, default: str) -> str:
+    text = str(value or "").strip()
+    if ":" not in text:
+        return default
+    hour_text, minute_text = text.split(":", maxsplit=1)
+    try:
+        hour = int(hour_text)
+        minute = int(minute_text)
+    except ValueError:
+        return default
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return default
+    return f"{hour:02d}:{minute:02d}"

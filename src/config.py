@@ -56,22 +56,7 @@ class Config:
     SELF_MAINTENANCE_INTERVAL: int = int(os.getenv("SELF_MAINTENANCE_INTERVAL", "12"))
     QUEUES_RESTORE_ON_START: bool = _get_bool("QUEUES_RESTORE_ON_START", True)
 
-    # 服务配置
-    ENABLE_QQ_SERVICE: bool = _get_bool("ENABLE_QQ_SERVICE", True)
-    ENABLE_ALARM_SERVICE: bool = _get_bool("ENABLE_ALARM_SERVICE", True)
-    ENABLE_DIARY_SERVICE: bool = _get_bool("ENABLE_DIARY_SERVICE", True)
-    # ENABLE_MCP_CONTAINER: bool = _get_bool("ENABLE_MCP_CONTAINER", False)
-
     SESSION_MAX_TOKENS: int = int(os.getenv("SESSION_MAX_TOKENS", "4000"))
-    QQ_REPLY_CHAR_LIMIT: int = int(os.getenv("QQ_REPLY_CHAR_LIMIT", "120"))
-    QQ_HISTORY_LIMIT: int = int(os.getenv("QQ_HISTORY_LIMIT", "50"))
-    QQ_REPLY_DEBOUNCE_SECONDS: float = float(
-        os.getenv("QQ_REPLY_DEBOUNCE_SECONDS", "6.0")
-    )
-    ALARM_DEFAULT_INTERVAL_SECONDS: int = int(
-        os.getenv("ALARM_DEFAULT_INTERVAL_SECONDS", "1800")
-    )
-    DIARY_TIME: str = os.getenv("DIARY_TIME", "22:00")
     SNAPSHOT_REFRESH_INTERVAL: int = int(
         os.getenv("SNAPSHOT_REFRESH_INTERVAL", "86400")
     )

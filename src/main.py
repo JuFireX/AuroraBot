@@ -5,14 +5,12 @@ import contextlib
 
 from nonebot import get_driver
 
+from src.brain.platform.app_discovery import instantiate_app
 from src.brain.platform.application_host import app_host
+from src.brain.platform.app_config import app_startup, load_apps_config
 from src.brain.platform.loop import run_app_loop
 from src.config import Config
 from src.utils.Logger import get_logger
-
-from apps.alarm import AlarmApplication
-from apps.diary import DiaryApplication
-from apps.qq import QQApplication
 
 logger = get_logger("Main")
 driver = get_driver()
@@ -25,13 +23,14 @@ async def startup_agent() -> None:
     global _engine_task, _stop_event
 
     Config.ensure_dirs()
+    apps_config = load_apps_config()
 
-    if Config.ENABLE_QQ_SERVICE:
-        await app_host.register(QQApplication())
-    if Config.ENABLE_DIARY_SERVICE:
-        await app_host.register(DiaryApplication())
-    if Config.ENABLE_ALARM_SERVICE:
-        await app_host.register(AlarmApplication())
+    for app_name, spec in apps_config.items():
+        if not bool(spec.get("enabled", False)):
+            continue
+        await app_host.register(
+            instantiate_app(app_name, app_startup(apps_config, app_name))
+        )
 
     _stop_event = asyncio.Event()
 
