@@ -32,12 +32,12 @@ class ApplicationHost:
             handler = getattr(app, command_decl.name, None)
             if handler is None:
                 raise AttributeError(
-                    f"{app.__class__.__name__} 缺少方法 {command_decl.name}"
+                    f"应用 {manifest.package} 缺少 {command_decl.name} 命令实现"
                 )
             self.register_command(
                 CommandSpec(
                     name=f"{manifest.package}.{command_decl.name}",
-                    description=_build_command_description(command_decl),
+                    description=command_decl.description.strip(),
                     parameters_schema=command_decl.to_parameters_schema(),
                     returns_schema=command_decl.to_returns_schema(),
                     handler=handler,
@@ -119,15 +119,6 @@ async def _maybe_await(result: Any) -> Any:
     if inspect.isawaitable(result):
         return await result
     return result
-
-
-# 命令描述构建
-def _build_command_description(command_decl: CommandDecl) -> str:
-    lines = [command_decl.description.strip()]
-    if command_decl.side_effects:
-        lines.append("副作用/Side effects:")
-        lines.extend(f"- {item}" for item in command_decl.side_effects)
-    return "\n".join(line for line in lines if line).strip()
 
 
 app_host = ApplicationHost()

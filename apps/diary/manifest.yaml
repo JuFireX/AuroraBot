@@ -7,7 +7,7 @@ app_desc: >-
   自己不做认知推理，但很适合与提醒、聊天记录整理等流程联动。
 commands:
   - name: write_diary
-    description: 写入结构化日记记录。
+    description: 写入结构化日记记录，并将日记数据保存到本地存储。
     parameters:
       date:
         type: string
@@ -34,5 +34,3 @@ commands:
       record_count:
         type: number
         description: 当前累计日记条数
-    side_effects:
-      - 会写入日记数据到本地存储

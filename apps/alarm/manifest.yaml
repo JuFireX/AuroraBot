@@ -8,7 +8,7 @@ app_desc: >-
   结合发送类命令把提醒发到对应目标。
 commands:
   - name: set_alarm
-    description: 设置一个会在未来触发的提醒。
+    description: 设置一个会在未来触发的提醒，并将提醒状态写入本地存储。
     parameters:
       message:
         type: string
@@ -29,5 +29,3 @@ commands:
       status:
         type: string
         description: 创建结果
-    side_effects:
-      - 会将提醒状态写入本地存储

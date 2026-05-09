@@ -13,7 +13,6 @@ class CommandDecl:
     description: str
     parameters: dict[str, dict[str, Any]] = field(default_factory=dict)
     returns: dict[str, dict[str, Any]] = field(default_factory=dict)
-    side_effects: list[str] = field(default_factory=list)
 
     # 从字典创建命令声明
     @classmethod
@@ -23,11 +22,6 @@ class CommandDecl:
             description=str(payload.get("description", "")).strip(),
             parameters=_normalize_mapping(payload.get("parameters")),
             returns=_normalize_mapping(payload.get("returns")),
-            side_effects=[
-                str(item)
-                for item in payload.get("side_effects", [])
-                if str(item).strip()
-            ],
         )
 
     # 将命令声明转换为参数模式

@@ -9,7 +9,7 @@ app_desc: >-
   而不是把多条内容拼进同一个 text 字段。
 commands:
   - name: send_qq_message
-    description: 向一个 QQ 群或会话发送文本消息。
+    description: 向一个 QQ 群或会话发送文本消息；消息发出后会被对方或群成员看到。
     parameters:
       session_id:
         type: string
@@ -26,10 +26,8 @@ commands:
       delivered_at:
         type: number
         description: 实际发送时间戳
-    side_effects:
-      - 消息发出后会被对方或群成员看到
   - name: send_qq_private_message
-    description: 向指定 QQ 用户发送私聊消息。
+    description: 向指定 QQ 用户发送私聊消息；私聊内容只有双方可见。
     parameters:
       user_id:
         type: string
@@ -43,10 +41,8 @@ commands:
       success:
         type: boolean
         description: 是否发送成功
-    side_effects:
-      - 私聊内容只有双方可见
   - name: at_user_in_group
-    description: 在群里 @ 某个用户并发送消息。
+    description: 在群里 @ 某个用户并发送消息；被 @ 的用户会收到更强提醒。
     parameters:
       group_id:
         type: string
@@ -64,5 +60,3 @@ commands:
       success:
         type: boolean
         description: 是否发送成功
-    side_effects:
-      - 被 @ 的用户会收到更强提醒
