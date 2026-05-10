@@ -1,0 +1,4 @@
+{
+  "greeting": "hello from example",
+  "emit_startup_event": true
+}
