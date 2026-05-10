@@ -1,285 +1,233 @@
-# Aurora-Bot
+# AuroraBot
 
-**图 1. 总体系统层级图**
+AuroraBot 是一个基于 NoneBot 的本地智能体实验项目。
 
-```mermaid
-flowchart TB
-    subgraph EXT["External World / External Systems"]
-        QQ["QQ / OneBot v11"]
-        CLOCK["Time / Scheduler"]
-        USERDATA["Local Filesystem"]
-    end
+它把系统拆成两层：
 
-    subgraph BOOT["Boot And Runtime Entry"]
-        NB["NoneBot Driver"]
-        MAIN["src/main.py\nstartup_agent() / shutdown_agent()"]
-        CFG["src/config.py\nConfig, env, paths"]
-    end
+- `platform`
+  - 负责加载应用、注册命令、维护事件队列
+- `kernel`
+  - 负责消费事件、生成计划、展开动作、执行命令
 
-    subgraph PLATFORM["Platform Layer: src/brain/platform"]
-        DISC["app_discovery.py\nDiscover + instantiate apps"]
-        APPCFG["app_config.py\nLoad apps/config.yaml"]
-        HOST["application_host.py\nRegister apps, commands, event queue"]
-        API["application_api.py\nPlatformAPI for apps"]
-        MF["manifest.py\nManifest / CommandDecl"]
-        LOOP["loop.py\nrun_app_loop()"]
-        CONTRACT["contracts.py\nAppEvent / CommandSpec"]
-        PROTO["application_protocol.py\nLifecycle protocol"]
-    end
+当前项目已经从“单体 agent 直接处理事件”的模式，切换到了“多 stage agent 协作的内核流水线”。
 
-    subgraph APPS["Application Layer: apps/*"]
-        QQAPP["apps/qq\nQQApplication"]
-        ALARMAPP["apps/alarm\nAlarmApplication"]
-        DIARYAPP["apps/diary\nDiaryApplication"]
-        MANIFESTS["manifest.yaml files"]
-        RUNTIMES["runtime.py files"]
-    end
+## 这项目现在是什么
 
-    subgraph CORE["Brain / Kernel Layer: src/brain/kernel"]
-        AGENT["agent.py\nAgent"]
-        KLOOP["kernel/loop.py\nrun_agent_loop()"]
-        FUTURE["Future brain logic\nConsume AppEvent,\nDecide commands"]
-    end
+当前 AuroraBot 更像一个“智能体运行时框架”，而不是单一聊天机器人。
 
-    NB --> MAIN
-    CFG --> MAIN
+它提供：
 
-    MAIN --> APPCFG
-    MAIN --> DISC
-    MAIN --> HOST
-    MAIN --> LOOP
+- 一个应用宿主层：让 `apps/*` 以统一方式接入
+- 一个内核编排层：把事件转成计划，再转成动作
+- 一套本地持久化数据目录：便于观察和调试中间状态
 
-    APPCFG --> DISC
-    DISC --> QQAPP
-    DISC --> ALARMAPP
-    DISC --> DIARYAPP
-
-    QQAPP --> MANIFESTS
-    QQAPP --> RUNTIMES
-    ALARMAPP --> MANIFESTS
-    ALARMAPP --> RUNTIMES
-    DIARYAPP --> MANIFESTS
-    DIARYAPP --> RUNTIMES
-
-    HOST --> API
-    HOST --> CONTRACT
-    HOST --> MF
-    HOST --> PROTO
-
-    LOOP --> HOST
-    HOST --> QQAPP
-    HOST --> ALARMAPP
-    HOST --> DIARYAPP
-
-    QQ --> QQAPP
-    CLOCK --> ALARMAPP
-    USERDATA --> QQAPP
-    USERDATA --> ALARMAPP
-    USERDATA --> DIARYAPP
-
-    QQAPP -->|"emit AppEvent(message.received)"| HOST
-    ALARMAPP -->|"emit AppEvent(alarm_reminder / diary_prompt)"| HOST
-    DIARYAPP -->|"emit AppEvent(diary.written)"| HOST
-
-    HOST -.->|"future drain_events() -> brain consume"| FUTURE
-    FUTURE -.->|"future invoke_command()"| HOST
-    FUTURE --> AGENT
-    AGENT --> KLOOP
-```
-
-**图 2. Platform 内部模块层级图**
+## 当前架构一眼图
 
 ```mermaid
 flowchart LR
-    subgraph CONFIG["Configuration"]
-        C1["src/config.py\nPROJECT_ROOT / DATA_DIR / RUN_MODE / intervals"]
-        C2["apps/config.yaml\nenabled + startup args"]
-    end
-
-    subgraph DISCOVERY["Discovery And Manifest"]
-        D1["app_discovery.py\ndiscover_apps()"]
-        D2["app_discovery.py\ninstantiate_app()"]
-        D3["manifest.py\nManifest.load()"]
-        D4["manifest.py\nCommandDecl -> JSON Schema"]
-    end
-
-    subgraph HOSTING["Hosting Runtime"]
-        H1["application_host.py\n_apps"]
-        H2["application_host.py\n_manifests"]
-        H3["application_host.py\n_commands"]
-        H4["application_host.py\n_events deque"]
-        H5["register(app)"]
-        H6["invoke_command()"]
-        H7["tick()"]
-        H8["stop_all()"]
-    end
-
-    subgraph APPAPI["App Facing API"]
-        A1["application_api.py\nPlatformAPI"]
-        A2["emit_event()"]
-        A3["register_command()"]
-        A4["data_dir"]
-        A5["package / log()"]
-    end
-
-    subgraph CONTRACTS["Contracts"]
-        P1["application_protocol.py\nmanifest_path / on_start / on_tick / on_stop"]
-        P2["contracts.py\nAppEvent"]
-        P3["contracts.py\nCommandSpec"]
-    end
-
-    subgraph SCHED["Scheduler"]
-        S1["loop.py\nrun_app_loop()"]
-    end
-
-    C1 --> D1
-    C2 --> D1
-    C2 --> D2
-
-    D1 --> D3
-    D2 --> H5
-    D3 --> D4
-    D4 --> H3
-
-    H5 --> H1
-    H5 --> H2
-    H5 --> H3
-    H5 --> A1
-    A1 --> A2
-    A1 --> A3
-    A1 --> A4
-    A1 --> A5
-
-    A2 --> H4
-    A3 --> H3
-
-    S1 --> H7
-    H6 --> H3
-    H7 --> H1
-    H8 --> H1
-
-    P1 --> H5
-    P2 --> A2
-    P3 --> A3
+    EXT["外部输入\nQQ / 定时 / 文件"] --> APPS["Apps"]
+    APPS -->|"emit AppEvent"| HOST["ApplicationHost"]
+    HOST -->|"events"| PLAN["PlanAgent"]
+    PLAN -->|"plans.json"| EXPAND["ExpandAgent"]
+    EXPAND -->|"actions.json"| EXEC["ExecuteAgent"]
+    EXEC -->|"invoke_command()"| HOST
+    HOST -->|"command handler"| APPS
 ```
 
-**图 3. App 生命周期与运行时序图**
+## 核心概念
+
+### 1. App
+
+`apps/*` 目录下的每个应用都可以：
+
+- 暴露命令
+- 响应生命周期
+- 持久化自己的私有数据
+- 向宿主发事件
+
+典型示例：
+
+- `apps/alarm`
+- `apps/diary`
+- `apps/qq`
+- `apps/example`
+
+### 2. Platform
+
+`src/platform` 是宿主层。
+
+它负责：
+
+- 发现应用
+- 加载 manifest
+- 注册命令
+- 注入 `PlatformAPI`
+- 维护 `AppEvent` 队列
+- 执行 app 的命令处理函数
+
+### 3. Kernel
+
+`src/brain/kernel` 是官方维护的内核编排层。
+
+它负责：
+
+- 从宿主读取事件
+- 生成中间计划
+- 把计划展开成动作
+- 执行动作并回写结果
+
+内核内部并不是一个“万能 agent”，而是多个按阶段分工的 agent。
+
+## 当前内核工作流
+
+当前最小闭环是：
+
+```text
+events -> plans -> actions -> execution
+```
+
+对应三个内部 stage agent：
+
+- `PlanAgent`
+  - 从事件队列生成 `plans.json`
+- `ExpandAgent`
+  - 从 `plans.json` 生成 `actions.json`
+- `ExecuteAgent`
+  - 从 `actions.json` 调用命令
+
+### 阶段职责图
 
 ```mermaid
 flowchart TB
-    NB["NoneBot"]
-    MAIN["main.py"]
-    CFG["app_config.py"]
-    DISC["app_discovery.py"]
-    HOST["ApplicationHost"]
-    APP["App Runtime"]
-    API["PlatformAPI"]
-    LOOP["App Loop"]
-    FS["App Data Dir"]
-
-    NB -->|"startup"| MAIN
-    MAIN -->|"load app config"| CFG
-    CFG -->|"enabled apps"| MAIN
-
-    MAIN -->|"create app instance"| DISC
-    DISC -->|"app instance"| MAIN
-    MAIN -->|"register app"| HOST
-
-    HOST -->|"get manifest path"| APP
-    HOST -->|"load manifest"| HOST
-    HOST -->|"build command specs"| HOST
-    HOST -->|"bind platform api"| APP
-    HOST -->|"start app"| APP
-    APP -->|"load local state"| FS
-    HOST -->|"app registered"| MAIN
-
-    MAIN -->|"start app loop"| LOOP
-    LOOP -->|"tick"| HOST
-    HOST -->|"run tick"| APP
-    APP -->|"emit event"| API
-    API -->|"append to event queue"| HOST
-
-    HOST -->|"invoke command handler"| APP
-    APP -->|"persist state"| FS
-    APP -->|"result dict"| HOST
-
-    NB -->|"shutdown"| MAIN
-    MAIN -->|"stop all"| HOST
-    HOST -->|"stop app"| APP
-    APP -->|"save local state"| FS
+    E["events"] --> P["PlanAgent"]
+    P --> PFILE["data/kernel/plans.json"]
+    PFILE --> X["ExpandAgent"]
+    X --> AFILE["data/kernel/actions.json"]
+    AFILE --> EX["ExecuteAgent"]
+    EX --> R["command execution"]
 ```
 
-**图 4. App 族谱与职责边界图**
+## 目录速览
 
-```mermaid
-flowchart TB
-    subgraph PLATFORM["Platform"]
-        HOST["ApplicationHost"]
-        APIQQ["PlatformAPI(im.polaris.qq)"]
-        APIALARM["PlatformAPI(im.polaris.alarm)"]
-        APIDIARY["PlatformAPI(im.polaris.diary)"]
-        QUEUE["AppEvent Queue"]
-    end
-
-    subgraph QQAPP["apps/qq"]
-        QQM["manifest.yaml\nCommands:\n- send_qq_message\n- send_qq_private_message\n- at_user_in_group"]
-        QQR["runtime.py\nQQApplication"]
-        QQIN["Input:\nNoneBot on_message"]
-        QQOUT["Output:\nOneBot send_group_msg / send_private_msg"]
-        QQDATA["data/app_data/im_polaris_qq\n- qq_events.json\n- session_targets.json"]
-    end
-
-    subgraph ALARMAPP["apps/alarm"]
-        AM["manifest.yaml\nCommands:\n- set_alarm"]
-        AR["runtime.py\nAlarmApplication"]
-        AIN["Input:\non_tick time check"]
-        AOUT["Output:\nAppEvent alarm_reminder\nAppEvent diary_prompt"]
-        ADATA["data/app_data/im_polaris_alarm\n- alarms.json\n- config.json"]
-    end
-
-    subgraph DIARYAPP["apps/diary"]
-        DM["manifest.yaml\nCommands:\n- write_diary"]
-        DR["runtime.py\nDiaryApplication"]
-        DIN["Input:\nwrite_diary command"]
-        DOUT["Output:\nAppEvent diary.written"]
-        DDATA["data/app_data/im_polaris_diary\n- diaries.json"]
-    end
-
-    HOST --> APIQQ
-    HOST --> APIALARM
-    HOST --> APIDIARY
-
-    APIQQ --> QQR
-    APIALARM --> AR
-    APIDIARY --> DR
-
-    QQM --> QQR
-    AM --> AR
-    DM --> DR
-
-    QQIN --> QQR
-    QQR --> QQOUT
-    QQR --> QQDATA
-    QQR -->|"message.received"| QUEUE
-
-    AIN --> AR
-    AR --> ADATA
-    AR -->|"alarm_reminder / diary_prompt"| QUEUE
-
-    DIN --> DR
-    DR --> DDATA
-    DR -->|"diary.written"| QUEUE
+```text
+AuroraBot/
+  apps/                  # 应用层
+  docs/                  # 文档
+  src/
+    brain/
+      agents/            # 内核内部 stage agents
+      kernel/            # 内核编排层
+    platform/            # 应用宿主层
+    main.py              # 启动入口
+    config.py            # 全局配置
+  data/                  # 运行时数据
+  logs/                  # 日志
 ```
 
-**现状解读**
+## 现在能看到哪些数据
 
-- `platform` 的职责已经比较完整: 发现应用, 读取 manifest, 注册命令, 注入 `PlatformAPI`, 调度 `on_tick`, 管理事件队列. 这一套主要落在 [application_host.py](file:///e:/Coding%20Projects/Bot-Polaris/AuroraBot/src/brain/platform/application_host.py#L17-L115), [app_discovery.py](file:///e:/Coding%20Projects/Bot-Polaris/AuroraBot/src/brain/platform/app_discovery.py#L17-L128), [manifest.py](file:///e:/Coding%20Projects/Bot-Polaris/AuroraBot/src/brain/platform/manifest.py#L10-L106).
-- `app` 的职责边界也很明确: 只做环境感知, 原子命令执行, 本地状态持久化, 向上抛 `AppEvent`. 这和 [APP_DEVELOPMENT_GUIDE.md](file:///e:/Coding%20Projects/Bot-Polaris/AuroraBot/docs/APP_DEVELOPMENT_GUIDE.md#L5-L127) 完全一致.
-- 当前实际启用的是 `diary` 和 `alarm`, `qq` 在 `apps/config.yaml` 里默认是关闭的, 依据 [config.yaml](file:///e:/Coding%20Projects/Bot-Polaris/AuroraBot/apps/config.yaml#L1-L10).
-- `brain/kernel` 目前只有最小骨架, 还没有真正消费 `ApplicationHost.drain_events()` 并决策 `invoke_command()`, 所以如果你要画"完整闭环", 最严谨的表达就是"平台层已就绪, 核心认知闭环预留中", 依据 [main.py](file:///e:/Coding%20Projects/Bot-Polaris/AuroraBot/src/main.py#L37-L48), [kernel/loop.py](file:///e:/Coding%20Projects/Bot-Polaris/AuroraBot/src/brain/kernel/loop.py#L11-L24).
+运行时主要会看到这些目录：
 
-**建议**
+- `data/app_data/*`
+  - 各 app 的私有数据
+- `data/kernel/plans.json`
+  - 内核的 plan 队列
+- `data/kernel/actions.json`
+  - 内核的 action 队列
+- `data/queues/events.json`
+  - 宿主事件队列快照
+- `logs/aurora.log`
+  - 运行日志
 
-- 如果你要放进文档首页, 建议用 "图 1 + 图 4", 最容易让人一眼看懂.
-- 如果你要给开发者讲框架实现, 建议用 "图 2 + 图 3", 更适合说明注册流程和运行机制.
-- 如果你愿意, 我下一步可以直接把这 4 张图整理成一个 `docs/platform_app_architecture.md` 文件, 并顺手补一版"现状图"和"目标图"双版本文档.
+## 如何启动
+
+### 环境准备
+
+- Python 3.14
+- `uv`
+- NoneBot 相关依赖
+
+### 安装依赖
+
+```bash
+uv sync
+```
+
+### 启动项目
+
+```bash
+uv run .\bot.py
+```
+
+### 常见运行模式
+
+通过环境变量 `RUN_MODE` 控制：
+
+- `app`
+  - 只启动应用循环
+- `agent`
+  - 只启动内核循环
+- `prod`
+  - 同时启动应用循环和内核循环
+
+## 应用开发方式
+
+一个 app 通常由这些文件组成：
+
+- `manifest.yaml`
+- `runtime.py`
+- `config.example.json`
+- `README.md`
+
+应用通过 `PlatformAPI` 使用宿主能力，例如：
+
+- `emit_event()`
+- `register_command()`
+- `post_intention()`
+- `log()`
+- `data_dir`
+
+如果你要看最小示例，优先看：
+
+- `apps/example`
+
+## 这个项目当前适合做什么
+
+当前 AuroraBot 适合：
+
+- 实验多阶段内核编排
+- 实验事件驱动的 app 架构
+- 调试计划队列和动作队列
+- 逐步接入规则 agent、记忆 agent、LLM agent
+
+## 当前限制
+
+目前仍然处于“内核最小骨架”阶段，已知限制包括：
+
+- `ExpandAgent` 还是启发式展开，不是正式 planner
+- 还没有 `content_builder_agent`
+- 还没有 `memory_agent`
+- 还没有正式的会话路由层
+- 中间队列目前采用 JSON 文件持久化，更偏调试形态
+
+## 建议阅读顺序
+
+- 项目总览：`README.md`
+- 内核设计：`docs/KERNEL_ARCHITECTURE_PLAN.md`
+- 平台与应用架构：`docs/PLATFORM_APP_ARCHITECTURE.md`
+- App 开发：`docs/APP_DEVELOPMENT_GUIDE.md`
+
+## 后续演进方向
+
+当前推荐的演进顺序是：
+
+1. 先稳定 `events -> plans -> actions -> execution`
+2. 再增加 `content_builder_agent`
+3. 再增加 `memory_agent`
+4. 最后让 `expand` 或新的 `planner` 阶段接入 LLM
+
+## 一句话总结
+
+AuroraBot 现在的核心不是“一个会思考的大 agent”，而是：
+
+> 一个由宿主层承接应用、由内核层编排多阶段 agent 的本地智能体运行时。
