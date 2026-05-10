@@ -9,15 +9,15 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: "首页", link: "/" },
-      { text: "项目总览", link: "/README" },
-      { text: "App 开发", link: "/APP_DEVELOPMENT_GUIDE" },
+      { text: "项目总览", link: "/README.html" },
+      { text: "App 开发", link: "/APP_DEVELOPMENT_GUIDE.html" },
     ],
     sidebar: [
       {
         text: "开始",
         items: [
           { text: "首页", link: "/" },
-          { text: "项目总览", link: "/README" },
+          { text: "项目总览", link: "/README.html" },
         ],
       },
       {
@@ -25,15 +25,15 @@ export default defineConfig({
         items: [
           {
             text: "内核架构",
-            link: "/KERNEL_ARCHITECTURE_PLAN",
+            link: "/KERNEL_ARCHITECTURE_PLAN.html",
           },
           {
             text: "Platform 与 App 架构",
-            link: "/PLATFORM_APP_ARCHITECTURE",
+            link: "/PLATFORM_APP_ARCHITECTURE.html",
           },
           {
             text: "AUR CLI 规划",
-            link: "/AUR_CLI_PLAN",
+            link: "/AUR_CLI_PLAN.html",
           },
         ],
       },
@@ -42,7 +42,7 @@ export default defineConfig({
         items: [
           {
             text: "App 开发者指南",
-            link: "/APP_DEVELOPMENT_GUIDE",
+            link: "/APP_DEVELOPMENT_GUIDE.html",
           },
         ],
       },

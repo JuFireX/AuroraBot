@@ -8,10 +8,10 @@ hero:
   actions:
     - theme: brand
       text: 开始阅读
-      link: /README
+      link: /README.html
     - theme: alt
       text: App 开发指南
-      link: /APP_DEVELOPMENT_GUIDE
+      link: /APP_DEVELOPMENT_GUIDE.html
 
 features:
   - title: 项目总览
@@ -24,8 +24,8 @@ features:
 
 ## 文档入口
 
-- [项目总览](./README.md)
-- [内核架构](./KERNEL_ARCHITECTURE_PLAN.md)
-- [Platform 与 App 架构](./PLATFORM_APP_ARCHITECTURE.md)
-- [AUR CLI 规划](./AUR_CLI_PLAN.md)
-- [App 开发者指南](./APP_DEVELOPMENT_GUIDE.md)
+- [项目总览](./README.html)
+- [内核架构](./KERNEL_ARCHITECTURE_PLAN.html)
+- [Platform 与 App 架构](./PLATFORM_APP_ARCHITECTURE.html)
+- [AUR CLI 规划](./AUR_CLI_PLAN.html)
+- [App 开发者指南](./APP_DEVELOPMENT_GUIDE.html)

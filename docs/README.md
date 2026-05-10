@@ -32,10 +32,10 @@ flowchart LR
 
 ## 建议阅读顺序
 
-- [内核架构](./KERNEL_ARCHITECTURE_PLAN.md)
-- [Platform 与 App 架构](./PLATFORM_APP_ARCHITECTURE.md)
-- [App 开发者指南](./APP_DEVELOPMENT_GUIDE.md)
-- [AUR CLI 规划](./AUR_CLI_PLAN.md)
+- [内核架构](./KERNEL_ARCHITECTURE_PLAN.html)
+- [Platform 与 App 架构](./PLATFORM_APP_ARCHITECTURE.html)
+- [App 开发者指南](./APP_DEVELOPMENT_GUIDE.html)
+- [AUR CLI 规划](./AUR_CLI_PLAN.html)
 
 ## 启动方式
 
