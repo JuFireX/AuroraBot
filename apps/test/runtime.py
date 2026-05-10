@@ -32,7 +32,7 @@ class TestApplication:
     async def on_tick(self) -> None:
         return None
 
-    def test_command_a_plus_b(self, a: str, b: str) -> dict[str, Any]:
+    def test_command_a_plus_b(self, a: int, b: int) -> dict[str, Any]:
         if self._api is not None:
             self._api.emit_event(
                 AppEvent(
@@ -42,9 +42,9 @@ class TestApplication:
                     payload={"a": a, "b": b},
                 )
             )
-        return {"success": True, "res": int(a) + int(b)}
+        return {"success": True, "res": a + b}
 
-    def test_command_a_minus_b(self, a: str, b: str) -> dict[str, Any]:
+    def test_command_a_minus_b(self, a: int, b: int) -> dict[str, Any]:
         if self._api is not None:
             self._api.emit_event(
                 AppEvent(
@@ -54,4 +54,4 @@ class TestApplication:
                     payload={"a": a, "b": b},
                 )
             )
-        return {"success": True, "res": int(a) - int(b)}
+        return {"success": True, "res": a - b}
