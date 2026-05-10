@@ -22,6 +22,7 @@ class Config:
     SRC_ROOT = PROJECT_ROOT / "src"
     LOG_DIR = PROJECT_ROOT / "logs"
     DATA_DIR = PROJECT_ROOT / "data"
+    APP_DIR = PROJECT_ROOT / "apps"
 
     PROMPTS_DIR = SRC_ROOT / "brain" / "prompts"
     APP_DATA_DIR = DATA_DIR / "app_data"

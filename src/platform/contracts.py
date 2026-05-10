@@ -19,6 +19,18 @@ class AppEvent:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     created_at: str = field(default_factory=now_text)
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source": self.source,
+            "type": self.type,
+            "session_id": self.session_id,
+            "summary": self.summary,
+            "payload": self.payload,
+            "expire_at": self.expire_at,
+            "id": self.id,
+            "created_at": self.created_at,
+        }
+
 
 @dataclass(slots=True)
 class CommandSpec:

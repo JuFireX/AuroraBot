@@ -9,3 +9,9 @@ apps:
   alarm:
     enabled: true
     startup: {}
+  weather:
+    enabled: false
+    startup: {}
+  clock:
+    enabled: false
+    startup: {}

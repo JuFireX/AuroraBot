@@ -21,14 +21,15 @@ except ImportError:
 
 
 DEFAULT_LOGFILE_NAME = "aurora.log"
-FORMATTER_FORMAT = "%(asctime)s [%(levelname)s] %(name)s - %(message)s"
+FORMATTER_FORMAT = "%(asctime)s [%(levelname)s] %(name)s | %(message)s"
+DATETIME_FORMAT = "%m-%d %H:%M:%S"  # %Y-%m-%d %H:%M:%S
 MAX_LOGFILE_SIZE = 102400  # 100KB
 MAX_LOGFILE_BACKUPS = 5  # 保留5个备份
 
 
 LOG_LEVEL = Config.LOG_LEVEL if Config is not None else logging.INFO
 DEFAULT_LOGFILE = Config.LOG_DIR / DEFAULT_LOGFILE_NAME if Config is not None else None
-FORMATTER = logging.Formatter(FORMATTER_FORMAT, "%Y-%m-%d %H:%M:%S")
+FORMATTER = logging.Formatter(FORMATTER_FORMAT, DATETIME_FORMAT)
 
 
 def _create_stream_handler(level=LOG_LEVEL, formatter=FORMATTER):
@@ -120,7 +121,7 @@ def get_logger(name=None, level=LOG_LEVEL, logfile=None, formatter=FORMATTER):
         logger.setLevel(level)
         # 若记录器已配置过处理程序, 则直接返回
         if not hasattr(logger, "decorate"):
-            setattr(logger, "decorate", DecoratorFactory(logger))
+            logger.decorate = DecoratorFactory(logger)
         return logger
 
     logfile = logfile or DEFAULT_LOGFILE
@@ -135,6 +136,6 @@ def get_logger(name=None, level=LOG_LEVEL, logfile=None, formatter=FORMATTER):
     logger.addHandler(_create_file_handler(logfile, level, formatter))
 
     # 将 DecoratorFactory 实例绑定到记录器, 用于创建日志装饰器
-    setattr(logger, "decorate", DecoratorFactory(logger))
+    logger.decorate = DecoratorFactory(logger)
 
     return logger

@@ -1,5 +1,5 @@
 import nonebot
-from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11
+from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11  # noqa: N814
 
 nonebot.init()
 driver = nonebot.get_driver()

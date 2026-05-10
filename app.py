@@ -3,17 +3,17 @@ from __future__ import annotations
 import argparse
 import asyncio
 import datetime as dt
-import yaml
 import json
 from dataclasses import asdict
 from typing import Any
 
+import yaml
 
+from src.config import Config
+from src.platform.app_config import enabled_app_names, load_apps_config
 from src.platform.app_discovery import discover_apps, instantiate_app
 from src.platform.application_host import ApplicationHost
-from src.platform.app_config import enabled_app_names, load_apps_config
 from src.platform.contracts import AppEvent
-from src.config import Config
 
 
 def _build_host() -> ApplicationHost:
