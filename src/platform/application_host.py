@@ -14,7 +14,7 @@ from src.utils.Logger import get_logger
 
 logger = get_logger("ApplicationHost")
 
-events_json = Config.DATA_DIR / "queues" / "events.json"
+events_json = Config.KERNEL_DATA_DIR / "events.json"
 
 
 class ApplicationHost:

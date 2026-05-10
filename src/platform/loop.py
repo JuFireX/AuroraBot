@@ -5,7 +5,7 @@ import asyncio
 from src.platform.application_host import ApplicationHost
 from src.utils.Logger import get_logger
 
-logger = get_logger("ApplicationLoop")
+logger = get_logger("AppLoop")
 
 
 async def run_app_loop(
@@ -13,6 +13,9 @@ async def run_app_loop(
     stop_event: asyncio.Event,
     interval: float,
 ) -> None:
+    logger.info("应用循环已启动")
+
+    # 主调度
     while not stop_event.is_set():
         try:
             await host.tick()

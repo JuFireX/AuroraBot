@@ -1,12 +1,14 @@
 from __future__ import annotations
-
-import random
 from datetime import datetime
-from typing import Any
+import random
+from typing import Any, TYPE_CHECKING
 
+from src.brain.kernel.agent_base import Agent, AgentProposal, AgentResult
 from src.platform.contracts import AppEvent, CommandSpec
 from src.utils.Logger import get_logger
-from src.brain.kernel.agent_base import Agent
+
+if TYPE_CHECKING:
+    from src.platform.application_host import ApplicationHost
 
 logger = get_logger("TestAgent")
 
@@ -25,35 +27,82 @@ class TestAgent(Agent):
         self._max_events_per_tick = max(1, max_events_per_tick)
         self._max_commands_per_event = max(1, max_commands_per_event)
 
-    async def tick(self) -> None:
-        events = self._host.drain_events(limit=self._max_events_per_tick)
-        if not events:
-            return
+    def propose(self) -> AgentProposal | None:
+        pending_events = self.host.peek_events()
+        if not pending_events:
+            return None
 
-        commands = self._host.list_command_specs()
+        command_count = len(self.host.list_command_specs())
+        if command_count == 0:
+            return AgentProposal(
+                priority=1,
+                reason=f"检测到 {len(pending_events)} 个待处理事件, 但当前没有可执行命令",
+                metadata={
+                    "event_count": len(pending_events),
+                    "command_count": 0,
+                    "blocked": True,
+                },
+            )
+
+        return AgentProposal(
+            priority=min(100, len(pending_events)),
+            reason=f"检测到 {len(pending_events)} 个待处理事件",
+            metadata={
+                "event_count": len(pending_events),
+                "command_count": command_count,
+            },
+        )
+
+    async def step(self, proposal: AgentProposal) -> AgentResult:
+        commands = self.host.list_command_specs()
         if not commands:
-            logger.warning(f"事件队列中有 {len(events)} 个事件, 但当前没有可执行命令")
-            return
+            logger.warning(proposal.reason)
+            return AgentResult(summary=proposal.reason, metadata=proposal.metadata)
 
+        events = self.host.drain_events(limit=self._max_events_per_tick)
+        if not events:
+            return AgentResult(summary="提案时有事件, 执行时已被其他 Agent 消费")
+
+        commands_attempted = 0
+        commands_succeeded = 0
         for event in events:
-            await self._dispatch_event(event, commands)
+            attempted, succeeded = await self._dispatch_event(event, commands)
+            commands_attempted += attempted
+            commands_succeeded += succeeded
+
+        return AgentResult(
+            handled=commands_attempted > 0,
+            summary=f"处理了 {len(events)} 个事件",
+            events_consumed=len(events),
+            commands_attempted=commands_attempted,
+            commands_succeeded=commands_succeeded,
+            metadata={
+                "proposal": proposal.metadata,
+                "commands_failed": commands_attempted - commands_succeeded,
+            },
+        )
 
     async def _dispatch_event(
         self,
         event: AppEvent,
         commands: list[CommandSpec],
-    ) -> None:
+    ) -> tuple[int, int]:
         selected_commands = self._pick_commands(commands)
         logger.info(
             f"消费事件 {event.type}({event.id}), 随机选择 {len(selected_commands)} 个命令"
         )
+        commands_attempted = 0
+        commands_succeeded = 0
         for command in selected_commands:
+            commands_attempted += 1
             kwargs = self._build_kwargs(event, command)
             try:
-                result = await self._host.invoke_command(command.name, **kwargs)
+                result = await self.host.invoke_command(command.name, **kwargs)
+                commands_succeeded += 1
                 logger.info(f"命令执行完成: {command.name} -> {result}")
             except Exception as exc:  # noqa: BLE001
                 logger.warning(f"命令执行失败: {command.name}, error={exc}")
+        return commands_attempted, commands_succeeded
 
     def _pick_commands(self, commands: list[CommandSpec]) -> list[CommandSpec]:
         sample_size = min(

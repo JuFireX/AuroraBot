@@ -4,7 +4,6 @@ import contextlib
 
 from nonebot import get_driver
 
-from src.brain.kernel.agent_factory import build_host_agent
 from src.brain.kernel.loop import run_agent_loop
 from src.config import Config
 from src.platform.app_config import app_startup, load_apps_config
@@ -25,6 +24,7 @@ async def startup_agent() -> None:
     global _app_task, _agent_task, _stop_event
 
     Config.ensure_dirs()
+    # FIXME: 当前实现下, 就算禁用APP循环, 仍然会导入所有应用配置, 如果贸然禁用应用配置流程, 又会导致app_host无引用
     apps_config = load_apps_config()
 
     for app_name, spec in apps_config.items():
@@ -41,15 +41,12 @@ async def startup_agent() -> None:
         _app_task = asyncio.create_task(
             run_app_loop(app_host, _stop_event, Config.APP_FRAME_INTERVAL)
         )
-        logger.info("应用循环已启动")
 
     if Config.RUN_MODE in ["agent", "core", "prod"]:
-        agent = build_host_agent(app_host)
-        # 启动Agent循环
+        # 启动内核循环
         _agent_task = asyncio.create_task(
-            run_agent_loop(agent, _stop_event, Config.HEARTBEAT_INTERVAL)
+            run_agent_loop(app_host, _stop_event, Config.HEARTBEAT_INTERVAL)
         )
-        logger.info("Agent循环已启动")
 
 
 @driver.on_shutdown
@@ -75,5 +72,4 @@ async def shutdown_agent() -> None:
 
     # 等待结束
     await app_host.stop_all()
-
     logger.info("所有循环已中止")

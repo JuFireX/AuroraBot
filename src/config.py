@@ -26,13 +26,13 @@ class Config:
 
     PROMPTS_DIR = SRC_ROOT / "brain" / "prompts"
     APP_DATA_DIR = DATA_DIR / "app_data"
-    QUEUES_DATA_DIR = DATA_DIR / "queues"
     MEMORY_DATA_DIR = DATA_DIR / "memory"
+    KERNEL_DATA_DIR = DATA_DIR / "kernel"
 
-    QUEUES_SNAPSHOT_FILE = QUEUES_DATA_DIR / "runtime_queues.json"
-    EPISODIC_MEMORY_FILE = MEMORY_DATA_DIR / "episodes.json"
-    SEMANTIC_MEMORY_FILE = MEMORY_DATA_DIR / "semantic_memory.json"
-    SEMANTIC_SNAPSHOT_FILE = MEMORY_DATA_DIR / "semantic_snapshot.txt"
+    # QUEUES_SNAPSHOT_FILE = QUEUES_DATA_DIR / "runtime_queues.json"
+    # EPISODIC_MEMORY_FILE = MEMORY_DATA_DIR / "episodes.json"
+    # SEMANTIC_MEMORY_FILE = MEMORY_DATA_DIR / "semantic_memory.json"
+    # SEMANTIC_SNAPSHOT_FILE = MEMORY_DATA_DIR / "semantic_snapshot.txt"
 
     # 日志配置
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
@@ -54,7 +54,6 @@ class Config:
     HEARTBEAT_INTERVAL: float = float(os.getenv("HEARTBEAT_INTERVAL", "1.0"))
     APP_FRAME_INTERVAL: float = float(os.getenv("APP_FRAME_INTERVAL", "1.0"))
 
-    KERNEL_AGENT: str = os.getenv("KERNEL_AGENT", "test")
     # MAX_ACTIONS_PER_BEAT: int = int(os.getenv("MAX_ACTIONS_PER_BEAT", "50"))
     # SELF_MAINTENANCE_INTERVAL: int = int(os.getenv("SELF_MAINTENANCE_INTERVAL", "12"))
     # QUEUES_RESTORE_ON_START: bool = _get_bool("QUEUES_RESTORE_ON_START", True)
@@ -76,7 +75,7 @@ class Config:
             Config.APP_DATA_DIR,
             Config.SRC_ROOT,
             Config.PROMPTS_DIR,
-            Config.QUEUES_DATA_DIR,
+            Config.KERNEL_DATA_DIR,
             Config.MEMORY_DATA_DIR,
         ):
             path.mkdir(parents=True, exist_ok=True)
