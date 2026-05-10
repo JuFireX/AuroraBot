@@ -9,6 +9,9 @@ if TYPE_CHECKING:
     from src.platform.application_host import ApplicationHost
 
 AGENT_REGISTRY: dict[str, type[Agent]] = {
+    "execute": ExecuteAgent,
+    "expand": ExpandAgent,
+    "plan": PlanAgent,
     "test": TestAgent,
     "example": TestAgent,
     "alpha": TestAgent,

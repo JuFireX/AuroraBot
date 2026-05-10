@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 logger = get_logger("AgentLoop")
 MAX_AGENT_STEPS_PER_TICK = 8
-DEFAULT_AGENT_KEYS = ("test",)
+DEFAULT_AGENT_KEYS = ("plan", "expand", "execute")
 
 
 async def run_agent_loop(
