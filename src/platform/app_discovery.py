@@ -7,7 +7,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from src.brain.platform.manifest import Manifest
+from src.platform.manifest import Manifest
 from src.config import Config
 from src.utils.Logger import get_logger
 

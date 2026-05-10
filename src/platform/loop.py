@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from src.brain.platform.application_host import ApplicationHost
+from src.platform.application_host import ApplicationHost
 from src.utils.Logger import get_logger
 
 logger = get_logger("ApplicationLoop")

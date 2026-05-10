@@ -5,10 +5,10 @@ from collections.abc import Iterable
 import inspect
 from typing import Any
 
-from src.brain.platform.application_api import PlatformAPI
-from src.brain.platform.contracts import AppEvent, CommandSpec
-from src.brain.platform.application_protocol import ApplicationProtocol
-from src.brain.platform.manifest import CommandDecl, Manifest
+from src.platform.application_api import PlatformAPI
+from src.platform.contracts import AppEvent, CommandSpec
+from src.platform.application_protocol import ApplicationProtocol
+from src.platform.manifest import CommandDecl, Manifest
 from src.utils.Logger import get_logger
 
 logger = get_logger("ApplicationHost")

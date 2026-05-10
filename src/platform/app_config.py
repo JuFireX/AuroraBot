@@ -5,7 +5,7 @@ from typing import Any
 
 import yaml
 
-from src.brain.platform.app_discovery import (
+from src.platform.app_discovery import (
     DiscoveredApp,
     discover_apps,
     startup_defaults,

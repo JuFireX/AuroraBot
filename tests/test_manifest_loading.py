@@ -1,7 +1,7 @@
 from pathlib import Path
 import unittest
 
-from src.brain.platform.manifest import Manifest
+from src.platform.manifest import Manifest
 
 
 class ManifestLoadingTest(unittest.TestCase):

@@ -2,8 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.brain.platform.app_config import load_apps_config
-from src.brain.platform.app_discovery import discover_apps, instantiate_app
+from src.platform.app_config import load_apps_config
+from src.platform.app_discovery import discover_apps, instantiate_app
 
 
 class AppConfigTest(unittest.TestCase):

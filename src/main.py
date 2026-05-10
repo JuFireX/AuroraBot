@@ -5,10 +5,10 @@ import contextlib
 
 from nonebot import get_driver
 
-from src.brain.platform.app_discovery import instantiate_app
-from src.brain.platform.application_host import app_host
-from src.brain.platform.app_config import app_startup, load_apps_config
-from src.brain.platform.loop import run_app_loop
+from src.platform.app_discovery import instantiate_app
+from src.platform.application_host import app_host
+from src.platform.app_config import app_startup, load_apps_config
+from src.platform.loop import run_app_loop
 from src.config import Config
 from src.utils.Logger import get_logger
 

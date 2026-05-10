@@ -4,7 +4,7 @@ import unittest
 from apps.alarm import AlarmApplication
 from apps.diary import DiaryApplication
 from apps.qq import QQApplication
-from src.brain.platform.application_host import ApplicationHost
+from src.platform.application_host import ApplicationHost
 
 
 class ApplicationHostTest(unittest.TestCase):
@@ -43,7 +43,10 @@ class ApplicationHostTest(unittest.TestCase):
             self.assertTrue(all(event.expire_at is None for event in events))
             self.assertTrue(all(isinstance(event.created_at, str) for event in events))
             self.assertTrue(
-                all(isinstance(event.payload.get("next_trigger_at"), str) for event in events)
+                all(
+                    isinstance(event.payload.get("next_trigger_at"), str)
+                    for event in events
+                )
             )
             await host.stop_all()
 
