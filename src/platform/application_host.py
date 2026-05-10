@@ -84,6 +84,9 @@ class ApplicationHost:
     def list_commands(self) -> list[str]:
         return sorted(self._commands.keys())
 
+    def list_command_specs(self) -> list[CommandSpec]:
+        return [self._commands[name] for name in sorted(self._commands.keys())]
+
     def get_app(self, package: str) -> ApplicationProtocol | None:
         return self._apps.get(package)
 
@@ -109,7 +112,12 @@ class ApplicationHost:
         # 将当前事件队列可视化到文件
         # TODO: 目前事件队列是内存中的, 文件只读不可改，后续可以考虑持久化
         with open(events_json, "w") as f:
-            json.dump([event.to_dict() for event in self._events], f, indent=2)
+            json.dump(
+                [event.to_dict() for event in self._events],
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
 
     async def stop_all(self) -> None:
         for package, app in reversed(list(self._apps.items())):
