@@ -50,20 +50,15 @@ class Config:
     CAPABILITY_LOG_EXECUTION: bool = _get_bool("CAPABILITY_LOG_EXECUTION", False)
 
     # 核心配置
-    RUN_MODE: str = os.getenv("RUN_MODE", "core")  # core, prod, app
+    RUN_MODE: str = os.getenv("RUN_MODE", "prod")
     HEARTBEAT_INTERVAL: float = float(os.getenv("HEARTBEAT_INTERVAL", "1.0"))
     APP_FRAME_INTERVAL: float = float(os.getenv("APP_FRAME_INTERVAL", "1.0"))
-    MAX_ACTIONS_PER_BEAT: int = int(os.getenv("MAX_ACTIONS_PER_BEAT", "50"))
-    SELF_MAINTENANCE_INTERVAL: int = int(os.getenv("SELF_MAINTENANCE_INTERVAL", "12"))
-    QUEUES_RESTORE_ON_START: bool = _get_bool("QUEUES_RESTORE_ON_START", True)
 
-    SESSION_MAX_TOKENS: int = int(os.getenv("SESSION_MAX_TOKENS", "4000"))
-    SNAPSHOT_REFRESH_INTERVAL: int = int(
-        os.getenv("SNAPSHOT_REFRESH_INTERVAL", "86400")
-    )
-    SNAPSHOT_REFRESH_DEBOUNCE_SECONDS: float = float(
-        os.getenv("SNAPSHOT_REFRESH_DEBOUNCE_SECONDS", "3.0")
-    )
+    KERNEL_AGENT: str = os.getenv("KERNEL_AGENT", "test")
+    # MAX_ACTIONS_PER_BEAT: int = int(os.getenv("MAX_ACTIONS_PER_BEAT", "50"))
+    # SELF_MAINTENANCE_INTERVAL: int = int(os.getenv("SELF_MAINTENANCE_INTERVAL", "12"))
+    # QUEUES_RESTORE_ON_START: bool = _get_bool("QUEUES_RESTORE_ON_START", True)
+    # SESSION_MAX_TOKENS: int = int(os.getenv("SESSION_MAX_TOKENS", "4000"))
 
     # 模型配置
     MODEL: str = os.getenv("MODEL", "deepseek/deepseek-v4-flash")

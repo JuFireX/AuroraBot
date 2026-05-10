@@ -1,26 +1,17 @@
 from __future__ import annotations
 
 import random
-from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from src.platform.contracts import AppEvent, CommandSpec
 from src.utils.Logger import get_logger
+from src.brain.kernel.agent_base import Agent
 
-if TYPE_CHECKING:
-    from src.platform.application_host import ApplicationHost
-
-logger = get_logger("KernelAgent")
+logger = get_logger("TestAgent")
 
 
-class Agent(ABC):
-    @abstractmethod
-    async def tick(self) -> None:
-        raise NotImplementedError
-
-
-class EventDrivenAgent(Agent):
+class TestAgent(Agent):
     def __init__(
         self,
         host: "ApplicationHost",
@@ -29,7 +20,7 @@ class EventDrivenAgent(Agent):
         max_events_per_tick: int = 8,
         max_commands_per_event: int = 3,
     ) -> None:
-        self._host = host
+        super().__init__(host)
         self._random = random_source or random.Random()
         self._max_events_per_tick = max(1, max_events_per_tick)
         self._max_commands_per_event = max(1, max_commands_per_event)

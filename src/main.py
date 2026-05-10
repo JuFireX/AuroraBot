@@ -1,17 +1,16 @@
 from __future__ import annotations
-
 import asyncio
 import contextlib
 
 from nonebot import get_driver
 
-from src.brain.kernel.agent import EventDrivenAgent
+from src.brain.kernel.agent_factory import build_host_agent
 from src.brain.kernel.loop import run_agent_loop
+from src.config import Config
+from src.platform.app_config import app_startup, load_apps_config
 from src.platform.app_discovery import instantiate_app
 from src.platform.application_host import app_host
-from src.platform.app_config import app_startup, load_apps_config
 from src.platform.loop import run_app_loop
-from src.config import Config
 from src.utils.Logger import get_logger
 
 logger = get_logger("Main")
@@ -45,7 +44,7 @@ async def startup_agent() -> None:
         logger.info("应用循环已启动")
 
     if Config.RUN_MODE in ["agent", "core", "prod"]:
-        agent = EventDrivenAgent(app_host)
+        agent = build_host_agent(app_host)
         # 启动Agent循环
         _agent_task = asyncio.create_task(
             run_agent_loop(agent, _stop_event, Config.HEARTBEAT_INTERVAL)
@@ -60,19 +59,21 @@ async def shutdown_agent() -> None:
     if _stop_event is not None:
         _stop_event.set()
 
-    if _app_task is not None:
-        _app_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await _app_task
-    _app_task = None
-
+    # 先关闭Agent循环
     if _agent_task is not None:
         _agent_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await _agent_task
     _agent_task = None
 
-    # 等待应用循环结束
+    # 再关闭应用循环
+    if _app_task is not None:
+        _app_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await _app_task
+    _app_task = None
+
+    # 等待结束
     await app_host.stop_all()
-    logger.info("应用循环已中止")
-    logger.info("Agent循环已中止")
+
+    logger.info("所有循环已中止")

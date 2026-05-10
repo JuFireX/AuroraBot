@@ -1,8 +1,7 @@
 from __future__ import annotations
-
 import asyncio
 
-from src.brain.kernel.agent import Agent
+from src.brain.kernel.agent_base import Agent
 from src.utils.Logger import get_logger
 
 logger = get_logger("AgentLoop")
