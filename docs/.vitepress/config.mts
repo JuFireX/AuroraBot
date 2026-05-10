@@ -3,8 +3,8 @@ import { defineConfig } from "vitepress";
 export default defineConfig({
   title: "AuroraBot",
   description: "AuroraBot 项目文档",
-  base: "./",
-  cleanUrls: true,
+  base: "/AuroraBot/",
+  cleanUrls: false,
   lastUpdated: true,
   themeConfig: {
     nav: [
