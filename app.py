@@ -9,10 +9,10 @@ from dataclasses import asdict
 from typing import Any
 
 
-from src.brain.platform.app_discovery import discover_apps, instantiate_app
-from src.brain.platform.application_host import ApplicationHost
-from src.brain.platform.app_config import enabled_app_names, load_apps_config
-from src.brain.platform.contracts import AppEvent
+from src.platform.app_discovery import discover_apps, instantiate_app
+from src.platform.application_host import ApplicationHost
+from src.platform.app_config import enabled_app_names, load_apps_config
+from src.platform.contracts import AppEvent
 from src.config import Config
 
 

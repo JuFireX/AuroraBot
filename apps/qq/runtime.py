@@ -8,12 +8,12 @@ from typing import TYPE_CHECKING, Any
 from nonebot import get_bot, get_bots, on_message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageEvent
 
-from src.brain.platform.contracts import AppEvent
+from src.platform.contracts import AppEvent
 from src.utils.time_utils import now_text
 from src.utils.Logger import get_logger
 
 if TYPE_CHECKING:
-    from src.brain.platform.application_api import PlatformAPI
+    from src.platform.application_api import PlatformAPI
 
 logger = get_logger("QQApplication")
 

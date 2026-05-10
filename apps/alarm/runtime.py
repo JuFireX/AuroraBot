@@ -6,12 +6,12 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from src.brain.platform.contracts import AppEvent
+from src.platform.contracts import AppEvent
 from src.utils.Logger import get_logger
 from src.utils.time_utils import from_epoch_seconds, to_epoch_seconds
 
 if TYPE_CHECKING:
-    from src.brain.platform.application_api import PlatformAPI
+    from src.platform.application_api import PlatformAPI
 
 logger = get_logger("AlarmApplication")
 DEFAULT_INTERVAL_SECONDS = 1800
