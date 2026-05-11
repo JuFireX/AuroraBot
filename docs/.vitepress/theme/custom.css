@@ -1,29 +1,23 @@
-.VPHero .image-src {
-  filter: drop-shadow(0 0 12px rgba(100, 180, 255, 0.8))
-          drop-shadow(0 0 24px rgba(100, 180, 255, 0.5))
-          drop-shadow(0 0 48px rgba(100, 180, 255, 0.3))
-          drop-shadow(0 0 80px rgba(100, 180, 255, 0.15));
-  transition: filter 0.4s ease;
+@keyframes breathe-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 24px rgba(255, 255, 255, 0.25))
+            drop-shadow(0 0 48px rgba(255, 255, 255, 0.15))
+            drop-shadow(0 0 80px rgba(255, 255, 255, 0.08));
+  }
+  50% {
+    filter: drop-shadow(0 0 36px rgba(255, 255, 255, 0.35))
+            drop-shadow(0 0 64px rgba(255, 255, 255, 0.2))
+            drop-shadow(0 0 100px rgba(255, 255, 255, 0.12))
+            drop-shadow(0 0 140px rgba(255, 255, 255, 0.05));
+  }
 }
 
-.VPHero .image-src:hover {
-  filter: drop-shadow(0 0 16px rgba(100, 180, 255, 0.95))
-          drop-shadow(0 0 32px rgba(100, 180, 255, 0.65))
-          drop-shadow(0 0 64px rgba(100, 180, 255, 0.45))
-          drop-shadow(0 0 100px rgba(100, 180, 255, 0.25));
+.VPHero .image-src {
+  max-width: 180px;
+  max-height: 180px;
+  animation: breathe-glow 5s ease-in-out infinite;
 }
 
 .VPHero .image-bg {
-  filter: drop-shadow(0 0 12px rgba(100, 180, 255, 0.8))
-          drop-shadow(0 0 24px rgba(100, 180, 255, 0.5))
-          drop-shadow(0 0 48px rgba(100, 180, 255, 0.3))
-          drop-shadow(0 0 80px rgba(100, 180, 255, 0.15));
-  transition: filter 0.4s ease;
-}
-
-.VPHero .image-bg:hover {
-  filter: drop-shadow(0 0 16px rgba(100, 180, 255, 0.95))
-          drop-shadow(0 0 32px rgba(100, 180, 255, 0.65))
-          drop-shadow(0 0 64px rgba(100, 180, 255, 0.45))
-          drop-shadow(0 0 100px rgba(100, 180, 255, 0.25));
+  animation: breathe-glow 5s ease-in-out infinite;
 }

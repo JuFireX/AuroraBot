@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" width="120" alt="AuroraBot Logo" />
+  <img src="assets/logo.svg" width="120" alt="AuroraBot Logo" />
 </p>
 
 <h1 align="center">AuroraBot</h1>

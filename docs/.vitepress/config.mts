@@ -8,6 +8,9 @@ export default withMermaid(
     base: "/AuroraBot/",
     cleanUrls: false,
     lastUpdated: true,
+    head: [
+      ["link", { rel: "icon", type: "image/svg+xml", href: "/AuroraBot/logo.svg" }],
+    ],
     mermaid: {
       theme: "default",
       securityLevel: "loose",
@@ -71,6 +74,9 @@ export default withMermaid(
       search: {
         provider: "local",
       },
+      socialLinks: [
+        { icon: "github", link: "https://github.com/JuFireX/AuroraBot" },
+      ],
       outline: {
         label: "本页内容",
       },
@@ -87,7 +93,7 @@ export default withMermaid(
       },
       footer: {
         message: "Built with VitePress",
-        copyright: "Copyright © 2026 AuroraBot",
+        copyright: "Copyright © 2026 JuFireX",
       },
     },
   })
