@@ -11,7 +11,6 @@
   "devDependencies": {
     "mermaid": "^11.14.0",
     "vitepress": "^1.6.4",
-    "vitepress-plugin-mermaid": "^2.0.17",
-    "vitepress-plugin-mermaid-diagram": "^0.3.2"
+    "vitepress-plugin-mermaid": "^2.0.17"
   }
 }
