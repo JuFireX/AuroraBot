@@ -1,3 +1,4 @@
+import { diagramPlugin } from "vitepress-plugin-mermaid-diagram";
 import { defineConfig } from "vitepress";
 
 export default defineConfig({
@@ -6,34 +7,40 @@ export default defineConfig({
   base: "/AuroraBot/",
   cleanUrls: false,
   lastUpdated: true,
+  markdown: {
+    config(md) {
+      md.use(diagramPlugin);
+    },
+  },
   themeConfig: {
     nav: [
       { text: "首页", link: "/" },
-      { text: "项目总览", link: "/README.html" },
-      { text: "App 开发", link: "/APP_DEVELOPMENT_GUIDE.html" },
+      { text: "开始", link: "/start/overview.html" },
+      { text: "架构", link: "/architecture/system-overview.html" },
+      { text: "开发", link: "/guide/app-development.html" },
     ],
     sidebar: [
       {
         text: "开始",
         items: [
-          { text: "首页", link: "/" },
-          { text: "项目总览", link: "/README.html" },
+          { text: "项目总览", link: "/start/overview.html" },
+          { text: "快速开始", link: "/start/getting-started.html" },
         ],
       },
       {
-        text: "架构与设计",
+        text: "架构",
         items: [
           {
-            text: "内核架构",
-            link: "/KERNEL_ARCHITECTURE_PLAN.html",
+            text: "系统架构总览",
+            link: "/architecture/system-overview.html",
           },
           {
-            text: "Platform 与 App 架构",
-            link: "/PLATFORM_APP_ARCHITECTURE.html",
+            text: "内核流水线",
+            link: "/architecture/kernel-pipeline.html",
           },
           {
-            text: "AUR CLI 规划",
-            link: "/AUR_CLI_PLAN.html",
+            text: "平台运行时",
+            link: "/architecture/platform-runtime.html",
           },
         ],
       },
@@ -42,13 +49,36 @@ export default defineConfig({
         items: [
           {
             text: "App 开发者指南",
-            link: "/APP_DEVELOPMENT_GUIDE.html",
+            link: "/guide/app-development.html",
+          },
+        ],
+      },
+      {
+        text: "路线图",
+        items: [
+          {
+            text: "AUR CLI 路线图",
+            link: "/roadmap/aur-cli.html",
           },
         ],
       },
     ],
     search: {
       provider: "local",
+    },
+    outline: {
+      label: "本页内容",
+    },
+    docFooter: {
+      prev: "上一页",
+      next: "下一页",
+    },
+    lastUpdated: {
+      text: "最后更新",
+      formatOptions: {
+        dateStyle: "short",
+        timeStyle: "medium",
+      },
     },
     footer: {
       message: "Built with VitePress",
