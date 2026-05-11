@@ -4,7 +4,7 @@ import { withMermaid } from "vitepress-plugin-mermaid";
 export default withMermaid(
   defineConfig({
     title: "AuroraBot",
-    description: "AuroraBot 项目文档",
+    description: "AuroraBot — 一个本地运行的、自循环、自规划的数字生命",
     base: "/AuroraBot/",
     cleanUrls: false,
     lastUpdated: true,

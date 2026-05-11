@@ -3,42 +3,24 @@ layout: home
 
 hero:
   name: AuroraBot
-  text: 本地智能体运行时文档
-  tagline: 聚焦应用宿主、内核流水线与 App 扩展能力的结构化文档站
+  text: 本地自循环数字生命
+  tagline: 高度解耦的 App 插件体系 · 多 Agent 认知决策流水线 · 图基统一联合记忆
+  image:
+    src: /AuroraBot/logo.png
+    alt: AuroraBot Logo
   actions:
     - theme: brand
-      text: 阅读总览
+      text: 阅读文档
       link: /start/overview.html
     - theme: alt
       text: 快速开始
       link: /start/getting-started.html
 
 features:
-  - title: 分层清晰
-    details: 从 apps、platform、kernel 三层职责切入，先建立稳定的整体认知。
-  - title: 路径明确
-    details: 按开始、架构、开发、路线图四类组织文档，阅读成本更低。
-  - title: 面向落地
-    details: 既覆盖当前实现，也给出后续演进方向与 App 开发约定。
+  - title: App 插件体系
+    details: 每个 App 都是独立的感知器与执行器，通过统一 PlatformAPI 与宿主交互。高度解耦，按需插拔。
+  - title: 认知决策流水线
+    details: Plan → Expand → Execute 三阶段 Agent 自循环，不依赖单一“超级 Agent”。
+  - title: 联合记忆系统
+    details: 知识图谱、向量检索、情景记忆融合为一个统一记忆层，让决策随着时间演化。
 ---
-
-## 阅读入口
-
-### 开始
-
-- [项目总览](./start/overview.html)
-- [快速开始](./start/getting-started.html)
-
-### 架构
-
-- [系统架构总览](./architecture/system-overview.html)
-- [内核流水线](./architecture/kernel-pipeline.html)
-- [平台运行时](./architecture/platform-runtime.html)
-
-### 开发
-
-- [App 开发指南](./guide/app-development.html)
-
-### 路线图
-
-- [AUR CLI 路线图](./roadmap/aur-cli.html)
