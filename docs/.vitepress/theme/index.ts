@@ -1,13 +1,14 @@
 import Mermaid from "./Mermaid.vue";
 import DefaultTheme from "vitepress/theme";
 import type { Theme } from "vitepress";
+import Layout from "./Layout.vue";
 import "./custom.css";
 
 const theme: Theme = {
-    ...DefaultTheme,
+    extends: DefaultTheme,
+    Layout,
     enhanceApp(ctx) {
         DefaultTheme.enhanceApp?.(ctx);
-        // 覆盖插件默认 Mermaid 组件，避免亮暗模式切换时强制重渲染导致闪烁
         ctx.app.component("Mermaid", Mermaid);
     },
 };
