@@ -144,7 +144,3 @@ AuroraBot 站在众多优秀开源项目的肩膀上构建：
 | [VitePress](https://github.com/vuejs/vitepress)   | 文档站生成框架           | [MIT License](https://github.com/vuejs/vitepress/blob/main/LICENSE)                 |
 
 特别感谢 **[MaiBot](https://github.com/MaiM-with-u/MaiBot)** 为本项目提供架构灵感与设计参考。
-
-## 许可证
-
-本项目使用 [Apache License 2.0](./LICENSE) 协议开源。
