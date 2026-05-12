@@ -4,7 +4,7 @@ import { generateSidebar } from "vitepress-sidebar";
 
 export default withMermaid(
   defineConfig({
-    title: "AuroraBot",
+    title: "AuroraBot 文档站",
     description: "AuroraBot — 一个本地运行的、自循环、自规划的数字生命",
     base: "/AuroraBot/",
     cleanUrls: true,
