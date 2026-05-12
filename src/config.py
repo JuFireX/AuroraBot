@@ -60,7 +60,7 @@ class Config:
     # SESSION_MAX_TOKENS: int = int(os.getenv("SESSION_MAX_TOKENS", "4000"))
 
     # 模型配置
-    MODEL: str = os.getenv("MODEL", "deepseek/deepseek-v4-flash")
+    LITELLM_MODEL: str = os.getenv("LITELLM_MODEL", "deepseek/deepseek-v4-flash")
     DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "sk-xxx")
     AI_CONTEXT_CHAR_LIMIT: int = int(os.getenv("AI_CONTEXT_CHAR_LIMIT", "6000"))
 
