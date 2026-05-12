@@ -1,6 +1,7 @@
 ---
 title: 项目总览
 description: 快速了解 AuroraBot 的定位、分层、运行方式与当前边界。
+order: 1
 ---
 
 # 项目总览
@@ -85,3 +86,4 @@ flowchart TB
 4. [平台运行时](../architecture/platform-runtime.html)
 5. [App 开发指南](../guide/app-development.html)
 6. [AUR CLI 路线图](../roadmap/aur-cli.html)
+7. [DeepSeek 说她是什么](../appendix/comment-of-deepseek.html)

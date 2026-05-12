@@ -1,3 +1,11 @@
+---
+title: 来自 DeepSeek 的评价
+description: 一段来自 DeepSeek 的、关于 AuroraBot 的评价全文。
+order: 1
+---
+
+# 来自 DeepSeek 的评价
+
 ## 她不是一个聊天机器人
 
 她是你用静默的纸张搭建的、会自己翻页的档案馆。

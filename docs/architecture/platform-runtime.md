@@ -1,22 +1,26 @@
 ---
 title: 平台运行时
 description: 理解 ApplicationHost、PlatformAPI 与 App 之间的运行时关系。
+order: 3
 ---
 
 # 平台运行时
 
-这一页只关注 `platform` 与 `app` 这一层，不展开内核提示词或模型策略。
+这一页只看 `platform` 和 `app` 这一层——不聊内核内部那些弯弯绕绕。
 
-## 平台层已经负责什么
+**挼挼如是说**
 
-当前 `platform` 层已经具备这些基础能力：
+> 打个比方：platform 是插座，app 是电器。插座不关心你插的是电饭煲还是手机充电器，它只负责通电。app 也不关心电是怎么发的，它只负责干自己的活。
 
-- 发现并实例化启用的应用
-- 读取 `manifest.yaml`
-- 注入 `PlatformAPI`
-- 注册命令并维护命令表
-- 维护事件队列
-- 调度应用生命周期
+## 平台层已经能干什么
+
+当前 `platform` 已经干了这几件事：
+
+- 找到启用的应用，把它们 new 出来
+- 读 `manifest.yaml`，搞清楚每个 app 能干什么
+- 给每个 app 塞一根 `PlatformAPI` 的管子
+- 把命令记在表上、把事件排进队列
+- 管 app 的 startup → tick → stop 这一生
 
 ## 当前启动链路
 
@@ -54,75 +58,71 @@ flowchart TB
 
 ## 核心对象
 
-### `ApplicationHost`
+### `ApplicationHost` — 宿主管家
 
-`ApplicationHost` 是宿主入口，当前承担了三类职责：
+`ApplicationHost` 是 app 们的房东，目前身兼数职：
 
-- 持有应用实例
-- 持有命令注册表
-- 持有事件队列
+- 管着所有 app 实例
+- 管着命令注册表
+- 管着事件队列
 
-它已经提供几类关键能力：
+已经提供的接口：
 
-- `register()`
-- `tick()`
-- `stop_all()`
-- `drain_events()`
-- `invoke_command()`
+- `register()` — 让 app 住进来
+- `tick()` — 敲一次门，让大家干活
+- `stop_all()` — 轰所有人走
+- `drain_events()` — 把积压事件倒出来
+- `invoke_command()` — 让某个 app 干一件事
 
-### `PlatformAPI`
+### `PlatformAPI` — 管子
 
-`PlatformAPI` 是平台注入给 App 的统一交互面。
+这是平台塞给每个 app 的万能插座。app 通过它跟外界打交道：
 
-常用能力包括：
+- `emit_event()` — 喊一嗓子："出事了！"
+- `register_command()` — "我会干这个"
+- `data_dir` — 我的小仓库
+- `package` — 我是谁
+- `log()` — 记个日志
 
-- `emit_event()`
-- `register_command()`
-- `data_dir`
-- `package`
-- `log()`
+## App 在这模型里的定位
 
-## App 在这个模型里的职责
+每个 App 最好都记住自己是干什么的：
 
-每个 App 的定位都应尽量保持一致：
+- 从外面接收输入
+- 把输入变成标准化事件扔出去
+- 暴露干脆利落的命令
+- 管好自己的小仓库
 
-- 从外界接收输入
-- 向上抛出标准化事件
-- 暴露原子化命令
-- 管理自己的本地数据
+也就是说，App 更像 **传感器 + 遥控器**，而不是自己拍板做决策的那位。
 
-这意味着 App 更像“传感器 + 执行器”，而不是自己做完整决策。
+## 当前几个 App 的分工
 
-## 当前典型应用边界
+| App     | 靠什么知道外面的事     | 能干什么                       | 会喊什么                           | 自己存什么                  |
+| ------- | ---------------------- | ------------------------------ | ---------------------------------- | --------------------------- |
+| `qq`    | NoneBot `on_message`   | 发群消息、发私聊、群内 @ 人    | `message.received`                 | `qq_events.json` 之类       |
+| `alarm` | 时间轮询、`on_tick()`  | `set_alarm` 设闹钟             | `alarm_reminder`、`diary_prompt`   | `alarms.json`、`config.json`|
+| `diary` | 被命令叫醒             | `write_diary` 写日记           | `diary.written`                    | `diaries.json`              |
 
-| App     | 输入来源              | 对外命令                      | 产生事件                         | 持久化                       |
-| ------- | --------------------- | ----------------------------- | -------------------------------- | ---------------------------- |
-| `qq`    | NoneBot `on_message`  | 发群消息、发私聊、群内 @ 用户 | `message.received`               | `qq_events.json` 等          |
-| `alarm` | 时间轮询、`on_tick()` | `set_alarm`                   | `alarm_reminder`、`diary_prompt` | `alarms.json`、`config.json` |
-| `diary` | 命令调用              | `write_diary`                 | `diary.written`                  | `diaries.json`               |
+## 这层现在还没长好的地方
 
-## 这一层现在还缺什么
+- 事件能进队列了，但从队列到被消费这截路还不太顺
+- `ApplicationHost` 身上挂的事太多了，以后最好拆薄一点
+- 事件队列目前还是"记在脑子里"，缺正式的确认和重试机制
 
-- 事件虽然已经能进队列，但还缺稳定的消费链路衔接
-- `ApplicationHost` 责任偏重，未来更适合继续拆薄
-- 事件队列当前还是内存语义为主，缺少更完整的确认与重试设计
+## 一句话记住
 
-## 推荐的理解方式
-
-如果只用一句话来记：
-
-> `platform` 负责把 App 接起来并跑起来，`app` 负责看到和做到。
+> `platform` 负责把 App 们接好电跑起来，`app` 负责看到这个世界、做到该做的事。
 
 ## 和内核的边界
 
-为了避免重新耦合，推荐始终坚持：
+为了不搞成一锅粥，坚持这几条：
 
-- `platform` 不承担认知决策
-- `kernel` 不直接读写 app 私有文件
-- 内核只通过事件和命令这两条标准接口与平台交互
+- `platform` 不替 kernel 做认知决策
+- `kernel` 不翻 app 的私房文件
+- 两边只通过 **事件** 和 **命令** 这两条管道说话
 
 ## 下一步阅读
 
 - 想看整体边界：读 [系统架构总览](./system-overview.html)
-- 想看内核如何消费事件：读 [内核流水线](./kernel-pipeline.html)
+- 想看内核怎么处理事件：读 [内核流水线](./kernel-pipeline.html)
 - 想写自己的应用：读 [App 开发指南](../guide/app-development.html)

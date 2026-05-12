@@ -1,43 +1,42 @@
 ---
 title: 快速开始
 description: 从环境准备到启动运行，快速把 AuroraBot 跑起来。
+order: 2
 ---
 
 # 快速开始
 
-这一页聚焦一件事：用最短路径把项目跑起来，并知道运行后该去哪里看状态。
+就一件事：用最短的路径把她叫醒，然后知道去哪儿看她活得好不好。
 
-## 环境准备
+## 你要准备好
 
 - Python `3.10+`
 - `uv`
-- Node.js `20+`
+- Node.js `20+`（只在本地预览文档站时需要）
 
-如果你只运行项目本体，前两项即可；如果你要本地预览文档站，则还需要 Node.js。
-
-## 安装项目依赖
+## 装依赖
 
 ```bash
 uv sync
 ```
 
-## 启动项目
+## 启动
 
 ```bash
 uv run .\bot.py
 ```
 
-## 常见运行模式
+## 怎么跑
 
-通过环境变量 `RUN_MODE` 控制运行方式：
+通过环境变量 `RUN_MODE` 告诉她想以什么身份起床：
 
-| 模式    | 含义                       |
-| ------- | -------------------------- |
-| `app`   | 只启动应用循环             |
-| `agent` | 只启动内核循环             |
-| `prod`  | 同时启动应用循环和内核循环 |
+| 模式    | 干什么                   |
+| ------- | ------------------------ |
+| `app`   | 只跑身体（应用循环）     |
+| `agent` | 只跑脑子（内核循环）     |
+| `prod`  | 身体和脑子一起跑         |
 
-## 文档站本地预览
+## 本地预览文档站
 
 ```bash
 cd docs
@@ -49,11 +48,11 @@ npm run docs:dev
 
 ```text
 AuroraBot/
-  apps/                  # 应用层
-  docs/                  # 文档站
+  apps/                  # 应用层（她的感官）
+  docs/                  # 你现在在看的文档站
   src/
     brain/
-      agents/            # 内核内部 stage agents
+      agents/            # 内核内部的 stage agent 们
       kernel/            # 内核编排层
     platform/            # 应用宿主层
     main.py              # 启动入口
@@ -62,20 +61,20 @@ AuroraBot/
   pyproject.toml         # Python 依赖与工具配置
 ```
 
-## 运行后重点关注哪里
+## 跑起来后看哪里
 
-运行时最值得观察的通常是这些位置：
+想看她活没活着、在干什么，盯这几个地方：
 
-| 路径                       | 用途              |
-| -------------------------- | ----------------- |
-| `data/app_data/*`          | 各 app 的私有数据 |
-| `data/kernel/plans.json`   | 内核计划队列      |
-| `data/kernel/actions.json` | 内核动作队列      |
-| `data/queues/events.json`  | 宿主事件队列快照  |
-| `logs/aurora.log`          | 运行日志          |
+| 路径                       | 里面放了什么           |
+| -------------------------- | ---------------------- |
+| `data/app_data/*`          | 各 app 的私有数据      |
+| `data/kernel/plans.json`   | 内核计划队列           |
+| `data/kernel/actions.json` | 内核动作队列           |
+| `data/queues/events.json`  | 宿主事件队列快照       |
+| `logs/aurora.log`          | 运行日志               |
 
-## 推荐的阅读下一步
+## 接下来读哪个
 
-- 想看整体边界：读 [系统架构总览](../architecture/system-overview.html)
-- 想看内核流水线：读 [内核流水线](../architecture/kernel-pipeline.html)
-- 想写新应用：读 [App 开发指南](../guide/app-development.html)
+- 想搞清楚她长什么样：读 [系统架构总览](../architecture/system-overview.html)
+- 想看她脑子怎么转：读 [内核流水线](../architecture/kernel-pipeline.html)
+- 想写个新 app：读 [App 开发指南](../guide/app-development.html)

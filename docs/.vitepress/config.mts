@@ -1,15 +1,19 @@
 import { defineConfig } from "vitepress";
 import { withMermaid } from "vitepress-plugin-mermaid";
+import { generateSidebar } from "vitepress-sidebar";
 
 export default withMermaid(
   defineConfig({
     title: "AuroraBot",
     description: "AuroraBot — 一个本地运行的、自循环、自规划的数字生命",
     base: "/AuroraBot/",
-    cleanUrls: false,
+    cleanUrls: true,
     lastUpdated: true,
     head: [
-      ["link", { rel: "icon", type: "image/svg+xml", href: "/AuroraBot/logo.svg" }],
+      [
+        "link",
+        { rel: "icon", type: "image/svg+xml", href: "/AuroraBot/logo.svg" },
+      ],
     ],
     mermaid: {
       theme: "default",
@@ -23,54 +27,21 @@ export default withMermaid(
     themeConfig: {
       nav: [
         { text: "首页", link: "/" },
-        { text: "开始", link: "/start/overview.html" },
-        { text: "架构", link: "/architecture/system-overview.html" },
-        { text: "开发", link: "/guide/app-development.html" },
+        { text: "开始", link: "/start/overview" },
+        { text: "架构", link: "/architecture/system-overview" },
+        { text: "开发", link: "/guide/app-development" },
       ],
-      sidebar: [
-        {
-          text: "开始",
-          items: [
-            { text: "项目总览", link: "/start/overview.html" },
-            { text: "快速开始", link: "/start/getting-started.html" },
-          ],
-        },
-        {
-          text: "架构",
-          items: [
-            {
-              text: "系统架构总览",
-              link: "/architecture/system-overview.html",
-            },
-            {
-              text: "内核流水线",
-              link: "/architecture/kernel-pipeline.html",
-            },
-            {
-              text: "平台运行时",
-              link: "/architecture/platform-runtime.html",
-            },
-          ],
-        },
-        {
-          text: "开发",
-          items: [
-            {
-              text: "App 开发者指南",
-              link: "/guide/app-development.html",
-            },
-          ],
-        },
-        {
-          text: "路线图",
-          items: [
-            {
-              text: "AUR CLI 路线图",
-              link: "/roadmap/aur-cli.html",
-            },
-          ],
-        },
-      ],
+      sidebar: generateSidebar({
+        documentRootPath: ".",
+        scanStartPath: ".",
+        resolvePath: "/",
+        useTitleFromFileHeading: true,
+        useFolderTitleFromIndexFile: true,
+        includeFolderIndexFile: false,
+        sortMenusByFrontmatterOrder: true,
+        frontmatterOrderDefaultValue: 99,
+        collapsed: false,
+      }),
       search: {
         provider: "local",
       },
@@ -96,5 +67,5 @@ export default withMermaid(
         copyright: "Copyright © 2026 JuFireX",
       },
     },
-  })
+  }),
 );
