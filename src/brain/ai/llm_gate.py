@@ -5,7 +5,7 @@ import litellm
 from litellm import acompletion
 
 from src.config import Config
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 
 logger = get_logger("LLMGate")
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from src.platform.contracts import AppEvent
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 from src.utils.time_utils import from_epoch_seconds, to_epoch_seconds
 
 if TYPE_CHECKING:

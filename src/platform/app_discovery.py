@@ -9,7 +9,7 @@ from typing import Any
 
 from src.config import Config
 from src.platform.manifest import Manifest
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 
 logger = get_logger("AppDiscovery")
 

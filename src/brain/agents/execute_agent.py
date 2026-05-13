@@ -3,7 +3,7 @@ from typing import Any, TYPE_CHECKING
 
 from src.brain.kernel.agent_base import Agent, AgentProposal, AgentResult
 from src.brain.kernel.state_store import kernel_file, load_json_list, save_json_list
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 from src.utils.time_utils import now_text
 
 if TYPE_CHECKING:

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from src.brain.kernel.agent_base import Agent, AgentProposal, AgentResult
 from src.brain.kernel.agent_factory import build_agent
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 
 if TYPE_CHECKING:
     from src.platform.application_host import ApplicationHost

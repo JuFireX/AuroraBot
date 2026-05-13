@@ -1,12 +1,11 @@
 from __future__ import annotations
-
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any, TYPE_CHECKING
 
 from src.platform.contracts import AppEvent
+from src.utils.log_utils import get_logger
 from src.utils.time_utils import now_text
-from src.utils.Logger import get_logger
 
 if TYPE_CHECKING:
     from src.platform.application_api import PlatformAPI

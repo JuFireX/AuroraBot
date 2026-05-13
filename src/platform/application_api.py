@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from src.platform.contracts import AppEvent, CommandSpec
 from src.config import Config
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 
 if TYPE_CHECKING:
     from src.platform.application_host import ApplicationHost

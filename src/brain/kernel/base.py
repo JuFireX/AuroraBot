@@ -6,7 +6,7 @@ from enum import Enum, auto
 from fnmatch import fnmatch
 from typing import Any, Optional
 
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 from src.utils.time_utils import now_text
 
 logger = get_logger("NodeBase")
