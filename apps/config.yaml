@@ -4,10 +4,10 @@ apps:
     startup:
       enable_listener: true
   diary:
-    enabled: true
+    enabled: false
     startup: {}
   alarm:
-    enabled: true
+    enabled: false
     startup: {}
   weather:
     enabled: false
@@ -16,10 +16,10 @@ apps:
     enabled: false
     startup: {}
   test:
-    enabled: true
+    enabled: false
     startup: {}
   example:
-    enabled: true
+    enabled: false
     startup:
       greeting: hello from example
       emit_startup_event: true
