@@ -5,4 +5,4 @@ order: 2
 
 # 架构
 
-AuroraBot 系统分层与内核流水线的深入说明。
+AuroraBot 四层架构与脑区 Agent 网络的深入说明。

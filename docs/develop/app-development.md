@@ -1,7 +1,7 @@
 ---
 title: App 开发指南
 description: 从目录结构到生命周期，系统化说明 AuroraBot 的 App 开发方式。
-order: 1
+order: 2
 ---
 
 # App 开发指南
@@ -216,4 +216,4 @@ App 从出生到退休，大致是这么个过程：
 ## 继续阅读
 
 - 想理解平台如何调度 App：读 [平台运行时](../architecture/platform-runtime.html)
-- 想理解命令怎么最终被执行：读 [内核流水线](../architecture/kernel-pipeline.html)
+- 想理解命令怎么最终被执行：读 [脑区架构](../architecture/brain-architecture.html)

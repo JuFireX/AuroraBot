@@ -1,6 +1,6 @@
 ---
 title: 平台运行时
-description: 理解 ApplicationHost、PlatformAPI 与 App 之间的运行时关系。
+description: 理解 ApplicationHost、PlatformAPI 与 App 之间的运行时关系，以及 Platform 与 Kernel、Brain 的边界。
 order: 3
 ---
 
@@ -113,16 +113,18 @@ flowchart TB
 
 > `platform` 负责把 App 们接好电跑起来，`app` 负责看到这个世界、做到该做的事。
 
-## 和内核的边界
+## 和 Kernel、Brain 的边界
 
 为了不搞成一锅粥，坚持这几条：
 
-- `platform` 不替 kernel 做认知决策
+- `platform` 不替 brain 做认知决策
 - `kernel` 不翻 app 的私房文件
-- 两边只通过 **事件** 和 **命令** 这两条管道说话
+- `brain` 通过 kernel 获取事件、通过 platform 分发命令
+- Platform ↔ Kernel ↔ Brain 之间只通过 **事件** 和 **命令** 这两条管道说话
 
 ## 下一步阅读
 
 - 想看整体边界：读 [系统架构总览](./system-overview.html)
-- 想看内核怎么处理事件：读 [内核流水线](./kernel-pipeline.html)
-- 想写自己的应用：读 [App 开发指南](../guide/app-development.html)
+- 想看内核怎么调度：读 [内核运行时](./kernel-runtime.html)
+- 想看脑区怎么认知：读 [脑区架构](./brain-architecture.html)
+- 想写自己的应用：读 [App 开发指南](../develop/app-development.html)

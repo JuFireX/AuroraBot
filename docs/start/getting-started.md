@@ -30,11 +30,11 @@ uv run .\bot.py
 
 通过环境变量 `RUN_MODE` 告诉她想以什么身份起床：
 
-| 模式    | 干什么                   |
-| ------- | ------------------------ |
-| `app`   | 只跑身体（应用循环）     |
-| `agent` | 只跑脑子（内核循环）     |
-| `prod`  | 身体和脑子一起跑         |
+| 模式    | 干什么               |
+| ------- | -------------------- |
+| `app`   | 只跑身体（应用循环） |
+| `agent` | 只跑脑子（内核循环） |
+| `prod`  | 身体和脑子一起跑     |
 
 ## 本地预览文档站
 
@@ -65,16 +65,16 @@ AuroraBot/
 
 想看她活没活着、在干什么，盯这几个地方：
 
-| 路径                       | 里面放了什么           |
-| -------------------------- | ---------------------- |
-| `data/app_data/*`          | 各 app 的私有数据      |
-| `data/kernel/plans.json`   | 内核计划队列           |
-| `data/kernel/actions.json` | 内核动作队列           |
-| `data/queues/events.json`  | 宿主事件队列快照       |
-| `logs/aurora.log`          | 运行日志               |
+| 路径                       | 里面放了什么      |
+| -------------------------- | ----------------- |
+| `data/app_data/*`          | 各 app 的私有数据 |
+| `data/kernel/plans.json`   | 内核计划队列      |
+| `data/kernel/actions.json` | 内核动作队列      |
+| `data/queues/events.json`  | 宿主事件队列快照  |
+| `logs/aurora.log`          | 运行日志          |
 
 ## 接下来读哪个
 
 - 想搞清楚她长什么样：读 [系统架构总览](../architecture/system-overview.html)
-- 想看她脑子怎么转：读 [内核流水线](../architecture/kernel-pipeline.html)
-- 想写个新 app：读 [App 开发指南](../guide/app-development.html)
+- 想看她脑子怎么转：读 [内核运行时](../architecture/kernel-runtime.html)
+- 想写个新 app：读 [App 开发指南](../develop/app-development.html)
