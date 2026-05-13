@@ -1,90 +1,215 @@
 ---
 title: 脑区架构
-description: 深入有向有环图的 Agent 节点网络——Brain 层的核心认知模型。
+description: CortexForge 意识引擎——基于文件驱动、事件总线与声明式认知拓扑的智能体内核。
 order: 2
 ---
 
 # 脑区架构
 
-Brain 是 AuroraBot 的内建认知能力层。与旧内核的线性流水线（Plan → Expand → Execute）不同，Brain 采用**有向有环图**（Directed Cyclic Graph）模型：多个 Agent / Router 节点通过有向边连接，状态在节点间沿边流转，形成持续的认知循环。
+Brain 层是 AuroraBot 的认知内核，代号 **CortexForge**。它不是一个具体的智能体应用，而是一个**用于生成智能体的底层操作系统**。其核心假设：
+
+- 智能体的全部认知状态都表示为**文件**（超级多态变量）。
+- 智能体的认知活动都建模为**节点**（Node），节点守护文件、被事件触发、产出新文件。
+- 整个系统的协调通过**事件总线**完成，构成一张声明式的认知拓扑电路。
 
 **挼挼如是说**
 
-> 如果把旧内核比作一条流水线——原料从一头进、成品从另一头出——那 Brain 就是一个编辑部的大办公室。编辑们（Agent 节点）坐在各自的工位上，每个人面前有一个文件篮。一份文件从一个人传到另一个人，转了一圈可能又回到第一个人手里——因为第二个人在上面批了新的问题。这就是"有向有环"：信息不是单向流动的，它会在认知循环里反复打磨。
+> 别把 Brain 想象成一个"AI 大脑"——它更像一间无限大的档案馆。每份文件都有自己的锁、版本号和读者登记册。工人们（节点）坐在各自的工位上，面前的文件篮一旦有东西滑入就开始工作，干完活把产出放进下一级文件篮。没有人喊"开工"，是文件本身在推动一切运转。
 
-## 为什么从流水线升级到图
+## 设计原则
 
-线性流水线的问题：
+1. **状态即文件** — 一切可变或不可变状态均以文件形式持久化，具备元信息、版本与锁。
+2. **无状态节点** — 节点本身不保持运行内存状态（除 LLM 宿主上下文），节点实例可随时销毁与重建。
+3. **静态依赖声明** — 节点的输入/输出文件在定义时即声明完毕，形成静态资源依赖图；运行时的通路由事件在图上动态寻找。
+4. **事件驱动** — 文件变动通过事件总线广播，节点按模式订阅，自行决定是否激活。
+5. **分层认知** — 认知过程分离为 **Agent**（需 LLM 的思考型节点）和 **Router**（纯机械化的反射型节点），共享统一基类。
+6. **双上下文投影** — 系统支撑一个沉浸式人格主上下文（热认知池）和一个结构化脑区上下文（冷认知池），通过 Router 翻译层连接。
 
-- 只能描述"事件 → 计划 → 动作"的固定路径
-- 无法表达"执行结果反馈回计划调整"的回环
-- 难以插入新阶段（如记忆检索、自我评估）而不破坏线性假设
+## 核心概念
 
-有向有环图的设计意图：
+### 文件 — 第一等公民
 
-- 节点之间可以任意有向连接，包括回环
-- 认知过程不再是"一遍过"，而是"反复打磨"
-- 新节点可以随时插入图结构，不影响已有节点
-- 天然支持未来开放的脑区节点插件体系
+文件是系统的全部数据流载体，不是"临时变量"——是**持久的、有版本的、加锁的**。
 
-## 节点类型
+**多态性**：文件可以是 JSON、YAML、纯文本、向量索引、数据库分片等。
 
-### Agent 节点
+**元信息**：每个文件附带版本号、锁状态、消费者偏移和历史快照引用。
 
-执行特定认知任务的工作单元。当前已有的 Agent 节点包括：
+**代码中的对应**：
 
-- **PlanAgent** — 从事件中识别意图，生成计划
-- **ExpandAgent** — 将计划展开为可执行的原子动作
-- **ExecuteAgent** — 调用 App 命令，执行并回写结果
-- **MemoryAgent**（规划中）— 存取统一联合记忆
-- **CriticAgent**（规划中）— 自我评估与反思
+| 类               | 角色                                                 |
+| ---------------- | ---------------------------------------------------- |
+| `FileDescriptor` | 声明一个节点将产出的文件（路径、schema、锁策略）     |
+| `FilePattern`    | 声明一个节点守护的文件模式（支持 glob 通配）         |
+| `FileEvent`      | 文件变更事件（路径、变更类型、版本号、时间戳）       |
+| `FileUpdate`     | 节点执行后产出的文件变更（描述符 + 内容 + 写入模式） |
 
-### Router 节点
+### 节点 — 认知原子
 
-决定状态在节点间的流转方向。Router 不产生内容，只做路由决策：
+一切认知逻辑的载体，分为两种派生类型，共享统一基类 `Node`。
 
-- **BroadcastRouter** — 将内部状态翻译为对外输出
-- **HeartbeatRouter** — 心跳脉冲，在沉默过久时主动生成意图
-
-## 文件篮机制
-
-节点之间不直接通信。每个节点有一个输入文件篮和一个输出文件篮：
-
-1. 上游节点将产出放入输出篮
-2. 内核调度器将文件传送到下游节点的输入篮
-3. 节点看到输入篮中有新文件，开始工作
-4. 工作完成后将结果放入自己的输出篮
-
-这个机制的好处：
-
-- **解耦** — 节点不需要知道谁在上游、谁在下游
-- **可回放** — 所有中间状态落盘，便于调试和回溯
-- **可插拔** — 新增节点只需要声明输入/输出契约
-
-## 调度模型
-
-内核（Kernel）作为心跳调度器，驱动 Brain 的运转：
+**Node 基类** [Node 定义](../../src/brain/kernel/base.py:85)：
 
 ```
-每个心跳周期：
-  1. 遍历所有节点，询问"有活干吗？"
-  2. 收集各节点的 proposal
-  3. 按优先级选择一个节点
-  4. 让该节点执行一步
-  5. 将产出传送到下游节点的输入篮
-  6. 进入下一个周期
+Node:
+    id: str
+    type: "agent" | "router"
+    guards: List[FilePattern]    # 守护的文件模式
+    produces: List[FileDescriptor]  # 产出的文件
+    state: IDLE | READY | RUNNING | WAITING | ERROR | TERMINATED
+
+    on_event(event) → bool    # 事件是否应激活本节点
+    execute() → List[FileUpdate]  # 执行认知操作
+    on_complete()              # 生命周期钩子
 ```
 
-## 当前状态
+节点**无内部记忆**（除 Agent 可能持有的临时 LLM 上下文），每次执行后理论上可被回收。
 
-Brain 层骨架已立，Agent 节点网络和 LLM 网关可运转。但仍在从线性流水线向图结构过渡：
+#### Agent（认知型节点）
 
-- 节点间的有向边尚未完全图化（部分路径仍接近线性）
-- Router 节点的实现还比较初步
-- 脑区节点插件体系尚未开放
+- 持有一个 LLM 宿主实例，执行时调用 LLM [Agent 定义](../../src/brain/kernel/base.py:178)
+- 通过 `think()` 方法调用统一 LLM 网关，自动注入系统提示词
+- 执行过程中可能异步等待，时长不确定
+- 产出为确定性文件，可通过版本控制回滚
+
+#### Router（反射型节点）
+
+- **零 LLM 调用**，纯逻辑门，执行时间可预测 [Router 定义](../../src/brain/kernel/base.py:236)
+- 是流程控制结构的原生载体：条件分支、多路汇集、循环控制、终止信号等
+- 规划中的 Router 类型：`SwitchRouter`、`WaitRouter`、`MergeRouter`、`LoopRouter`、`TerminateRouter`、`HeartbeatRouter`、`BroadcastRouter`
+
+### 事件总线 — 神经束
+
+文件变更通过事件总线广播，节点按模式订阅，自行决定是否激活。核心机制：
+
+- **模式订阅** — 节点注册 `FilePattern`（glob），不直接监听物理路径
+- **事件合并** — 对同一文件的连续快速变更进行窗口合并
+- **优先级队列** — 用户交互等高优事件可抢占低优后台任务
+- **事件溯源** — 所有事件顺序写入追加日志，用于事后调试与重演
+
+### 锁机制
+
+每份文件上压着一个锁章 [LockPolicy 定义](../../src/brain/kernel/base.py:22)：
+
+| 锁状态                | 含义                   |
+| --------------------- | ---------------------- |
+| `read_only`           | 只读，任何节点不可写入 |
+| `write_overwrite`     | 可覆盖写入             |
+| `append_only`         | 只允许追加             |
+| `locked_by_<node_id>` | 被特定节点独占         |
+
+### 静态依赖图 — 认知拓扑电路
+
+节点与文件之间的读写关系构成一张**有向二分图**：
+
+- 节点 → 产出文件（写边）
+- 文件 → 守护节点（读边）
+
+这张图在系统启动时由所有节点的 `guards` 和 `produces` 声明聚合而成。运行时的"通路"由事件在图上动态寻找——从变更的文件出发，沿读边找到所有订阅节点，激活后它们写新文件，再沿写边扩散。通路不是预先编好的脚本，而是动态激发的波前。
+
+```mermaid
+graph LR
+    subgraph 感知层
+        USER_MSG[user_message.md]
+    end
+    subgraph 计时与主动意识
+        HEARTBEAT[heartbeat.tick]
+    end
+    subgraph 规划与执行
+        INTENT[intent.json]
+        PLANNER(PlannerAgent)
+        EXECUTOR(ExecutorAgent)
+        GOAL_GEN(GoalGeneratorAgent)
+    end
+    subgraph 记忆系统
+        MEM_QUERY[memory_query.json]
+        MEM_RESULT[memory_result.json]
+        MEM_STORE[memory_store.db]
+        MEM_DRAWER(MemoryDrawerAgent)
+        CONSOLIDATOR(ConsolidatorAgent)
+    end
+    subgraph 反思与评估
+        SELF_EVAL[self_eval.json]
+        CRITIC(CriticAgent)
+    end
+    subgraph 意识流与人格
+        INNER_VOICE[inner_voice.txt]
+        CONSCIOUS[conscious_stream.md]
+        RESPONSE[response.md]
+        BROADCASTER(BroadcastRouter)
+        PERSONA(PersonaAgent)
+    end
+
+    HEARTBEAT --> GOAL_GEN
+    GOAL_GEN --> INTENT
+    USER_MSG --> PLANNER
+    SELF_EVAL --> PLANNER
+    PLANNER --> INTENT
+    INTENT --> EXECUTOR
+    USER_MSG --> MEM_DRAWER
+    MEM_QUERY --> MEM_DRAWER
+    MEM_DRAWER --> MEM_RESULT
+    MEM_STORE --> MEM_DRAWER
+    INTENT --> BROADCASTER
+    MEM_RESULT --> BROADCASTER
+    BROADCASTER --> INNER_VOICE
+    INNER_VOICE --> PERSONA
+    USER_MSG --> PERSONA
+    PERSONA --> RESPONSE
+    RESPONSE --> CONSCIOUS
+    CONSCIOUS --> CONSOLIDATOR
+    CONSOLIDATOR --> MEM_STORE
+    CONSCIOUS --> CRITIC
+    CRITIC --> SELF_EVAL
+```
+
+> 上图来自设计白皮书 `CortexForge 0.7`，展示的是目标态认知拓扑。当前实现仍在从线性流水线向此图迁移。
+
+## 双上下文脑区
+
+AuroraBot 的认知系统天然分为两个池：
+
+### 热认知池 — 人格主上下文
+
+- 载体：`conscious_stream.md`（追加的散文式意识流）
+- 由 `PersonaAgent` 维护，呈现小光的人格、语气、记忆
+- 沉浸式、连续、不可删除——这是她的"自我感"的来源
+
+### 冷认知池 — 结构化脑区上下文
+
+- 载体：`intent.json`、`self_eval.json`、`memory_result.json` 等结构化文件
+- 由 Agent 节点读写，Router 节点路由
+- 工单式、可版本化、可回滚——这是她的"思考过程"
+
+两个池通过 `BroadcastRouter` 连接：它将冷冰冰的结构化文件翻译成自然语言的内心独白，注入热认知池。
+
+## 与旧内核的对比
+
+当前 AuroraBot 的 Brain 层正处在 **从旧内核向 CortexForge 架构过渡** 的阶段：
+
+| 维度       | 旧内核（运行中）                           | CortexForge（目标态）                        |
+| ---------- | ------------------------------------------ | -------------------------------------------- |
+| 基类       | `Agent`（agent_base.py）                   | `Node` → `Agent` / `Router`（base.py）       |
+| 调度       | `loop.py` 线性轮询 plan/expand/execute     | 事件总线 + 文件变更驱动                      |
+| 状态模型   | JSON 文件队列（plans.json / actions.json） | 文件 + 元信息 + 版本 + 锁                    |
+| 节点类型   | 只有 Agent                                 | Agent + Router（控制结构原语）               |
+| 依赖关系   | 硬编码调用顺序                             | 声明式 guards / produces 静态依赖图          |
+| Agent 注册 | `agent_factory.py` 字典                    | `node_factory.py`（待填充）                  |
+| 节点目录   | —                                          | `nodes/agents/` + `nodes/routers/`（已就位） |
+
+**当前已就位的 CortexForge 基础设施** [Node 基类](../../src/brain/kernel/base.py)：
+
+- ✅ `Node` / `Agent` / `Router` 基类
+- ✅ `FileDescriptor` / `FilePattern` / `FileEvent` / `FileUpdate`
+- ✅ `NodeState` 六状态机（IDLE → READY → RUNNING → WAITING / ERROR → TERMINATED）
+- ✅ `LockPolicy`（`read_only` / `write_overwrite` / `append_only` / `locked_by_<id>`）
+- ✅ `nodes/agents/` 和 `nodes/routers/` 目录结构
+
+**待迁移**：旧的 `PlanAgent` / `ExpandAgent` / `ExecuteAgent` 需要在新的 `Node` 体系下重写为符合 `guards` / `produces` 声明的节点。
 
 ## 下一步阅读
 
-- 想理解单个节点的设计：读 [节点系统](./node-system.html)
-- 想理解调度器：读 [内核运行时](./kernel-runtime.html)
-- 想理解记忆怎么接入：读 [统一联合记忆](./memory-system.html)
+- 想理解节点的设计细节：读 [节点系统](./node-system.html)
+- 想理解内核调度：读 [内核运行时](./kernel-runtime.html)
+- 想理解记忆系统：读 [统一联合记忆](./memory-system.html)
+- 想看完整设计白皮书：`.trae/documents/关于脑区agent的进一步想法.md`

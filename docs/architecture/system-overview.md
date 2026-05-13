@@ -11,7 +11,7 @@ AuroraBot 有四层身：
 - **`apps`** — 她的感官和手脚，负责感知世界、执行动作
 - **`platform`** — 她的身体，负责把器官都接好、让它们好好跑，与上下层双向通信
 - **`kernel`** — 她的心跳，负责调度节奏、编排事件流与命令流
-- **`brain`** — 她的大脑，基于有向有环图的 Agent 节点网络，内建 LLM 网关与统一联合记忆
+- **`brain`** — 她的大脑，代号 **CortexForge**——基于文件驱动、事件总线与声明式认知拓扑的智能体内核。内建 Node/Agent/Router 节点网络、LLM 网关与统一联合记忆
 
 **挼挼如是说**
 
@@ -49,9 +49,10 @@ flowchart TB
         SCHEDULER["心跳调度器"]
     end
 
-    subgraph BRAIN["脑区层 (Brain)"]
+    subgraph BRAIN["脑区层 (Brain / CortexForge)"]
         direction LR
-        NODES["Agent 节点 (有向有环图)"]
+        NODES["Node / Agent / Router\n(文件驱动认知拓扑)"]
+        EVENTBUS["事件总线"]
         GATEWAYS["LLM / Embedding 网关"]
         MEMORY["统一联合记忆"]
     end
@@ -97,13 +98,16 @@ Kernel 是"心跳调度器"。
 - 编排命令流，通过 Platform 分发执行
 - 维护调度状态，不直接触碰 App 私事
 
-### Brain 层 — 主编团队
+### Brain 层 — 研究院
 
-Brain 是"内建认知能力层"。
+Brain 是"内建认知能力层"，代号 **CortexForge**——一个基于文件驱动、事件总线和声明式认知拓扑的智能体内核。
 
-- 基于有向有环图的 Agent / Router 节点网络
+- 全部认知状态以文件形式持久化，具备元信息、版本与锁
+- Node / Agent / Router 三类节点构成有向二分图（文件 ↔ 节点）
+- 事件总线广播文件变更，节点按 glob 模式订阅并自行激活
 - 统一 LLM 网关与 Embedding 网关
 - 统一联合记忆（图式事实记忆 + 情景记忆 + 知识图谱经验记忆）
+- 双上下文脑区：热认知池（人格主上下文）+ 冷认知池（结构化工单）
 - 未来开放脑区节点插件，供第三方扩展认知能力
 
 ## 设计原则

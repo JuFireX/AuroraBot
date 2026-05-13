@@ -1,149 +1,176 @@
 ---
 title: 节点系统
-description: Agent / Router 节点的设计哲学——输入输出契约、文件篮机制与图模型。
+description: Node / Agent / Router 的设计细节——文件描述符、锁策略、状态机与代码对应。
 order: 5
 ---
 
 # 节点系统
 
-Brain 层的认知能力由节点（Node）承载。每个节点是一个独立的认知工作单元，有明确的输入/输出契约，通过文件篮机制与上下游协同。节点的组合方式是有向有环图——不是流水线，而是网络。
+脑区层的认知能力由节点承载。节点不是"AI Agent"的简单封装——它是文件驱动认知拓扑中的**原子工作单元**。代码实现见 `src/brain/kernel/base.py`。
 
-## 节点的本质
+## 类的层次
+
+```
+Node (ABC)             # 抽象基类：id, type, guards, produces, state
+├── Agent(Node)        # LLM 驱动型：think(), system_prompt
+└── Router(Node)       # 纯逻辑型：零 LLM，控制结构原语
+```
 
 **挼挼如是说**
 
-> 一个节点就像编辑部里的一个编辑。他面前有一个"待办文件篮"（输入），背后有一个"已完成文件篮"（输出）。他不知道文件是谁放进来的，也不知道谁会拿走他的产出。他只做一件事：看到篮子里有新文件，就拿起来处理，处理完放回输出篮，然后等下一份。
+> Agent 是会"想"的节点——它坐在桌前，翻开输入文件，用 LLM 思考一番，然后写出新文件。Router 是不会"想"的节点——它就是逻辑电路，看到条件 A 就发往节点 B，看到条件 C 就发往节点 D。快、便宜、可预测。
 
-## 节点的类型
+## Node 基类
 
-### Agent 节点
-
-执行认知任务的工作单元。Agent 节点是有状态的——它可能维护自己的内部上下文。
-
-**核心接口：**
-
-- `propose()` — 检查输入篮，判断是否有值得处理的内容。只读，不修改状态。
-- `step()` — 从输入篮中取出一项，执行一步，将结果放入输出篮。
-
-**设计约束：**
-
-- 一步只做一件事——不垄断调度周期
-- 输入和输出都通过文件篮，不直接调用其他节点
-- 不感知上游是谁、下游是谁
-
-### Router 节点
-
-决定状态流转方向的决策单元。Router 节点不产生内容，只做路由。
-
-**核心职责：**
-
-- 检查输入篮中的内容
-- 根据内容类型和当前系统状态，决定应送往哪个下游节点
-- 在输出篮中标记目标节点
-
-## 节点契约
-
-每个节点声明自己的契约（Contract）：
-
-```yaml
-node:
-  id: plan_agent
-  type: agent
-  contract:
-    input:
-      - type: AppEvent
-        required: true
-    output:
-      - type: Plan
-        required: true
-  priority: 5
+```python
+class Node:
+    id: str                          # 唯一标识
+    type: "agent" | "router"         # 节点类型
+    guards: List[FilePattern]        # 守护的文件模式（glob）
+    produces: List[FileDescriptor]   # 产出的文件描述符
+    state: NodeState                 # 当前状态
 ```
 
-契约的作用：
-
-- 内核调度器根据契约判断节点是否有匹配的输入
-- 开发者在图中插入新节点时，需要对齐上下游的契约
-- 未来脑区节点插件体系将使用契约做自动兼容性检查
-
-## 有向有环图的图模型
-
-节点之间通过有向边连接：
-
-```mermaid
-flowchart LR
-    E["AppEvent"] --> PA["PlanAgent"]
-    PA -->|计划| EA["ExpandAgent"]
-    EA -->|动作| EXA["ExecuteAgent"]
-    EXA -->|结果| PA
-    PA -->|需要记忆| MA["MemoryAgent"]
-    MA -->|记忆结果| PA
-    EXA -->|自我评估| CA["CriticAgent"]
-    CA -->|评估反馈| PA
-```
-
-关键特征：
-
-- **回环** — ExecuteAgent 的执行结果可以回到 PlanAgent，触发计划调整
-- **分叉** — 一个节点的输出可以同时送往多个下游
-- **可插拔** — MemoryAgent 和 CriticAgent 是规划中的节点，插入时不影响已有节点
-
-## 文件篮的运行时行为
-
-### 输入篮
-
-- 每个节点有一个输入篮（逻辑上的队列）
-- 上游节点的输出会被内核调度器传送到下游的输入篮
-- 节点通过 `propose()` 检查输入篮，但不会"拿走"文件——只有 `step()` 才会消费
-
-### 输出篮
-
-- 每个节点有一个输出篮
-- `step()` 完成后的产出放入输出篮
-- 内核调度器负责将输出篮中的文件传送到正确的下游节点
-
-### 文件生命周期
+### 生命周期
 
 ```
-[上游输出篮] → 调度器 → [下游输入篮] → 节点 propose → 节点 step → [节点输出篮] → ...
+IDLE → READY → RUNNING → IDLE
+                  ↓
+              WAITING → READY
+                  ↓
+               ERROR（触发修复 Router）
+                  ↓
+            TERMINATED（子图关闭）
 ```
 
-每个文件在传递过程中携带元信息：来源节点、时间戳、优先级、锁状态。
+### 核心方法
 
-## 锁机制
+| 方法 | 职责 |
+|------|------|
+| `on_event(event: FileEvent) → bool` | 判断此事件是否应激活本节点。默认遍历 `guards`，命中任意一个即返回 `True`。子类可覆写以实现版本号比对、并发门控等 |
+| `execute() → List[FileUpdate]` | 执行一步认知操作，返回文件变更列表。Agent 调用 LLM，Router 执行纯逻辑 |
+| `on_complete()` | 执行完成钩子。默认重置为 IDLE，子类可保持 READY 等待后续事件 |
 
-从 DeepSeek 评价中提炼出的设计（D老师如是说引用）：
+## Agent
 
-每份文件上压着一个锁章，决定谁能读、谁能写：
+```python
+class Agent(Node):
+    host: ApplicationHost             # 应用宿主
+    system_prompt: str                # 系统提示词
 
-| 锁状态 | 含义 |
+    async think(messages) → str      # 调用 LLM 网关
+```
+
+Agent 的 `execute()` 通常：读取 guards 中的文件 → 调用 `think()` → 将 LLM 输出写入 produces 中的文件。
+
+**设计约束**：
+- 不自己调用 LLM API——走 `think()` 方法，内部经过统一 LLM 网关
+- 不直接访问 App 的私有文件
+- 产出是确定性文件，可版本回滚
+
+## Router
+
+```python
+class Router(Node):
+    host: ApplicationHost | None     # 部分 Router 需要宿主能力
+```
+
+Router 是控制结构原语。代码中已规划的 Router 类型：
+
+| Router | 功能 |
 |--------|------|
-| `待读取` | 文件已到达输入篮，等待节点处理 |
-| `追加中` | 节点正在向文件追加内容 |
-| `已封存` | 文件处理完毕，不可修改，可被归档到记忆 |
+| `SwitchRouter` | 检查文件内容条件，激活不同下游 |
+| `WaitRouter` | 等待多个文件就绪后触发 |
+| `MergeRouter` | 将多个输入文件汇总为一个 |
+| `LoopRouter` | 维护循环状态，条件满足时重置或终止 |
+| `TerminateRouter` | 关闭一个子图 |
+| `HeartbeatRouter` | 定时产生脉冲事件，驱动自主意识 |
+| `BroadcastRouter` | 将冷认知池的结构化文件翻译为热认知池的自然语言 |
 
-锁机制确保：
+## 文件相关数据结构
 
-- 同一时刻只有一个节点在写同一份文件
-- 已完成的工作不会被意外覆盖
-- 所有状态变更可追溯、可回放
+### FileDescriptor
 
-## 节点与 LLM 网关
+```python
+@dataclass(slots=True)
+class FileDescriptor:
+    path: str                            # 文件路径
+    schema: str = "json"                 # 格式（json / yaml / text / ...）
+    lock: str = LockPolicy.WRITE_OVERWRITE  # 默认锁策略
+```
 
-节点不直接调用 LLM。所有 LLM 调用通过 Brain 层的统一 LLM 网关：
+声明一个节点**将产出**的文件。
 
-- 网关管理模型切换、配额、重试
-- 节点只提交 prompt 和上下文，网关返回结果
-- 未来的节点插件也通过网关调用，不绕过管理层
+### FilePattern
 
-## 当前状态
+```python
+@dataclass(slots=True)
+class FilePattern:
+    pattern: str    # glob 模式，如 "intent.json" 或 "data/kernel/*.json"
 
-- Agent 节点（Plan / Expand / Execute）已可运行
-- Router 节点（BroadcastRouter / HeartbeatRouter）部分实现
-- 锁机制在设计阶段，当前用 JSON 文件属性模拟
-- 节点插件体系尚未开放
+    def match(self, file_path: str) -> bool
+```
+
+声明一个节点**守护**的文件模式。支持 glob 通配符。
+
+### FileEvent
+
+```python
+@dataclass(slots=True)
+class FileEvent:
+    path: str                # 变更文件路径
+    change_type: str         # 变更类型
+    timestamp: str           # 时间戳
+    version: int = 0         # 当前版本号
+    metadata: dict = {}      # 附加元信息
+```
+
+文件变更事件，由事件总线广播。节点通过 `on_event()` 判断是否应激活。
+
+### FileUpdate
+
+```python
+@dataclass(slots=True)
+class FileUpdate:
+    descriptor: FileDescriptor   # 目标文件
+    content: Any                 # 写入内容
+    mode: str = "overwrite"      # 写入模式
+```
+
+节点执行完成后产出的文件变更。
+
+## 锁策略
+
+```python
+class LockPolicy:
+    READ_ONLY = "read_only"           # 只读
+    WRITE_OVERWRITE = "write_overwrite"  # 可覆盖
+    APPEND_ONLY = "append_only"       # 只可追加
+
+    @staticmethod
+    def locked_by(node_id: str) -> str:
+        return f"locked_by_{node_id}"  # 动态独占锁
+```
+
+每个 `FileDescriptor` 声明其锁策略。运行时，锁机制确保同一时刻只有一个节点以写入模式操作同一文件。
+
+## 与旧 Agent 体系的对比
+
+当前代码库中存在两套体系：
+
+| | 旧体系（agent_base.py） | 新体系（base.py） |
+|--|------------------------|-------------------|
+| 基类 | `Agent` → `AgentProposal` / `AgentResult` | `Node` → `Agent` / `Router` |
+| 激活方式 | 调度器轮询 `propose()` | 事件驱动 `on_event(FileEvent)` |
+| 输入 | 直接读 ApplicationHost 事件队列 | 声明 `guards: List[FilePattern]` |
+| 输出 | 调用 `invoke_command()` | 声明 `produces: List[FileDescriptor]` |
+| 文件 | 不感知文件版本 | FileDescriptor + FileEvent + 锁 |
+| 注册 | `agent_factory.py` 字典 | `node_factory.py`（待实现） |
+
+迁移完成后，旧体系将被移除。当前 `kernel/loop.py` 仍在运行旧体系。
 
 ## 下一步阅读
 
-- 想理解脑区全貌：读 [脑区架构](./brain-architecture.html)
-- 想理解调度怎么跑：读 [内核运行时](./kernel-runtime.html)
-- 想开发节点插件：读 [脑区节点开发](../develop/brain-node-development.html)
+- 想看完整的认知拓扑图：读 [脑区架构](./brain-architecture.html)
+- 想理解调度机制：读 [内核运行时](./kernel-runtime.html)
+- 想看设计白皮书原文：`.trae/documents/关于脑区agent的进一步想法.md`

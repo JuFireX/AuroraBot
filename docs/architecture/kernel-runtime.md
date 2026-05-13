@@ -1,98 +1,91 @@
 ---
 title: 内核运行时
-description: Kernel 作为心跳调度器的职责边界——调度模型、优先级机制与命令编排。
+description: Kernel 的调度机制——从旧 loop.py 线性轮询到事件总线驱动的过渡。
 order: 6
 ---
 
 # 内核运行时
 
-Kernel 是 AuroraBot 的心跳——它不做认知推理，只负责调度与编排。它的核心职责是：消费事件、调度 Brain 节点、编排命令流。
+Kernel 是 AuroraBot 的调度心脏。**当前代码处于过渡期**：旧调度器 `loop.py` 仍在运行，新的事件总线 + Node 调度模型已在 `base.py` 中就位，等待 `node_factory.py` 完成填充后切换。
 
-**挼挼如是说**
+## 当前运行态：loop.py 线性调度
 
-> 如果说 Brain 是编辑部里的所有编辑，那 Kernel 就是排班经理。经理不写稿，但他知道今天谁在岗、谁的桌上有活、谁该先干。他敲钟（心跳），分配任务（调度），然后把成品发出去（命令编排）。
-
-## Kernel 的"不"原则
-
-Kernel 明确不做什么，比它做什么更重要：
-
-1. **不做认知推理** — 那是 Brain 的事
-2. **不直接碰 App 私事** — 不读写 App 的私有数据文件
-3. **不直接调 LLM** — 所有 LLM 调用走 Brain 的网关
-4. **不维护长期记忆** — 那是统一联合记忆的事
-
-## 调度模型
-
-`src/brain/kernel/loop.py` 是内核的心脏起搏器。每个周期执行同一套流程：
+旧调度器位于 `src/brain/kernel/loop.py`，采用轮询 + 优先级模型：
 
 ```
-loop:
-  1. 从 Platform 拉取事件队列（drain_events）
-  2. 将事件分发到 Brain 节点的输入篮
-  3. 遍历所有节点，调用 propose() 收集 proposal
-  4. 按优先级排序，选择得分最高的节点
-  5. 调用该节点的 step()，执行一步
-  6. 将节点的输出篮内容传送到下游节点的输入篮
-  7. 如有待执行的命令，通过 Platform 分发执行
-  8. 回到 1，下一轮重新评估
+每个周期：
+  1. 遍历所有 Agent，调用 propose() 收集提案
+  2. 按优先级排序，选择得分最高的 Agent
+  3. 调用该 Agent 的 step()，执行一步
+  4. 如果该步是"空闲"结果，结束本轮
+  5. 否则回到 2，最多执行 MAX_AGENT_STEPS_PER_TICK 步
 ```
 
-## 优先级机制
+### 当前注册的 Agent
 
-每个节点声明自己的优先级（priority），调度器按优先级选择：
-
-| 优先级 | 含义 | 典型节点 |
-|--------|------|---------|
-| 1-3 | 低优先 — 后台维护 | MemoryAgent（规划中） |
-| 4-6 | 中优先 — 常规认知 | PlanAgent, ExpandAgent |
-| 7-9 | 高优先 — 紧急响应 | ExecuteAgent, 对外回复 |
-
-调度器使用"优先级 + 等待时间"的综合评分——即使用了类似老化（aging）的机制，防止低优先级节点永远得不到调度。
-
-## 命令编排
-
-Kernel 不直接执行命令。当 Brain 节点产出需要外部执行的命令时：
-
-1. 节点将命令写入输出篮
-2. 调度器识别到命令类型输出
-3. 调度器通过 Platform 的 `invoke_command()` 分发执行
-4. 执行结果通过事件队列回到 Brain，形成闭环
-
-```
-Brain 节点 → 输出篮（命令）→ Kernel 调度器 → Platform.invoke_command() → App 执行
-                                                                              ↓
-Brain 节点 ← 输入篮（结果）← Kernel 调度器 ← Platform 事件队列 ← App 结果
+```python
+DEFAULT_AGENT_KEYS = ("plan", "expand", "execute")
 ```
 
-## 与旧内核的区别
+这三个 Agent 对应旧流水线的三个阶段。注册表在 `agent_factory.py` 中：
 
-旧内核（kernel-pipeline 描述的阶段）将决策过程硬编码为线性流水线。新内核：
+| Key | 类 | 职责 |
+|-----|-----|------|
+| `plan` | `PlanAgent` | 从事件队列识别意图，生成计划 |
+| `expand` | `ExpandAgent` | 将计划展开为原子动作 |
+| `execute` | `ExecuteAgent` | 调用 App 命令执行 |
 
-| 维度 | 旧内核 | 新内核 |
+## 目标态：事件总线 + Node 调度
+
+迁移完成后，Kernel 的调度将转向事件驱动模型：
+
+```
+事件循环：
+  1. 文件变更 → 事件总线广播 FileEvent
+  2. 所有 Node 的 on_event() 被调用
+  3. 匹配的 Node 进入 READY 状态
+  4. 调度器按优先级从 READY 队列中选择 Node
+  5. 调用 execute()，产出 FileUpdate
+  6. 文件写入触发新一轮 FileEvent → 回到 1
+```
+
+关键变化：
+
+| 维度 | 旧调度 | 新调度 |
 |------|--------|--------|
-| 认知模型 | 线性流水线 Plan→Expand→Execute | 有向有环图，节点可任意连接 |
-| 调度 | 按阶段固定顺序 | 按优先级动态选择 |
-| 扩展性 | 新增阶段需要改调度器 | 新增节点只需注册 |
-| 状态传递 | 阶段间直接传递 | 文件篮机制，解耦 |
+| 触发方式 | 定时轮询（interval） | 事件驱动（文件变更） |
+| 调度对象 | Agent（propose / step） | Node（on_event / execute） |
+| 激活判断 | Agent 内部逻辑 | 声明式 `guards` + `FileEvent` |
+| 产出 | 命令调用 | `FileUpdate` + 命令调用 |
+| 流程控制 | 无（硬编码顺序） | Router 节点（Switch / Loop / Merge） |
 
-## 事件流与命令流的分离
+## HeartbeatRouter — 自主意识脉冲
 
-Kernel 维持两条独立的通道：
+新架构的核心创新之一：系统不再等待外部输入。`HeartbeatRouter` 定时产生脉冲事件（`heartbeat.tick`），驱动 `GoalGeneratorAgent` 在沉默过久时主动生成意图。
 
-- **事件流** — Platform → Kernel → Brain。外部世界的变化进入系统。
-- **命令流** — Brain → Kernel → Platform → App。系统的决策作用于外部世界。
+这使 AuroraBot 从"回应用户的镜子"变成"会自己呼吸的生命体"——她不是因为有人说话才醒来，而是内部的钟摆从不停止。
 
-两条流永远分离——事件不会"变成"命令（那意味着跳过认知），命令不会"变成"事件（那意味着跳过反馈）。
+## 当前过渡状态
 
-## 当前状态
-
-- 心跳调度器（`loop.py`）已可运行
-- 优先级调度、老化机制在设计阶段，当前使用简单轮询
-- 文件篮的锁机制在设计阶段
-- 与 Platform 的事件/命令双通道已跑通最小闭环
+```
+src/brain/
+  kernel/
+    base.py           ← ✅ Node/Agent/Router 基类就位
+    agent_base.py     ← 🔄 旧 Agent 体系（运行中）
+    agent_factory.py  ← 🔄 旧 Agent 注册表（运行中）
+    node_factory.py   ← ⏳ 空文件，待实现
+    loop.py           ← 🔄 旧调度器（运行中）
+  agents/
+    plan_agent.py     ← 🔄 旧 Agent（待重写为 Node）
+    expand_agent.py   ← 🔄 旧 Agent（待重写为 Node）
+    execute_agent.py  ← 🔄 旧 Agent（待重写为 Node）
+  nodes/
+    agents/           ← ⏳ 空目录，待填充
+    routers/          ← ⏳ 空目录，待填充
+```
 
 ## 下一步阅读
 
-- 想理解 Platform 怎么和 Kernel 交互：读 [平台运行时](./platform-runtime.html)
-- 想理解 Brain 节点怎么被调度：读 [脑区架构](./brain-architecture.html)
-- 想理解整体四层关系：读 [系统架构总览](./system-overview.html)
+- 想理解 Node 基类细节：读 [节点系统](./node-system.html)
+- 想理解脑区全貌：读 [脑区架构](./brain-architecture.html)
+- 想看目标态认知拓扑：设计白皮书 `CortexForge 0.7`

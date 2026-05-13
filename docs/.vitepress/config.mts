@@ -9,6 +9,7 @@ export default withMermaid(
     base: "/AuroraBot/",
     cleanUrls: true,
     lastUpdated: true,
+    ignoreDeadLinks: true,
     head: [
       [
         "link",
