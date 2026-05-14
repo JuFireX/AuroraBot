@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: AuroraBot
-  text: 本地自循环, 自架构的智能体框架
-  tagline: 高度解耦的 App 插件体系 · 基于图的多 Agent 认知决策流水线 · 统一联合记忆
+  text: 新一代内驱式、自主决策的智能体框架
+  tagline: 四层解耦架构 · 有向有环图脑区 Agent 网络 · 统一联合记忆
   image:
     src: /logo.svg
     alt: AuroraBot Logo
@@ -16,22 +16,22 @@ hero:
       text: 快速开始
       link: /start/getting-started.html
     - theme: alt
-      text: 详细文档
+      text: 四层架构
       link: /architecture/system-overview.html
     - theme: alt
       text: 应用开发
-      link: /guide/app-development.html
+      link: /develop/app-development.html
 
 features:
   - icon: 🧠
-    title: 认知决策流水线
-    details: 基于有向有环图的多 Agent 认知决策流水线, 天然具备生理节律, 能够自然形成认知循环.
+    title: 文件驱动认知拓扑
+    details: 代号 CortexForge——Node / Agent / Router 节点通过文件篮 + 事件总线协作, 静态依赖图 + 动态波前, 自然形成持续认知循环.
   - icon: 📔
     title: 统一联合记忆
-    details: 记忆图谱、向量检索、情景记忆、事件记忆融合为一个统一记忆层, 让决策随着时间演化.
+    details: 图式事实记忆、情景记忆与知识图谱经验记忆借助 mem0 融合, 覆盖所有脑区活动, 关联式演化而非线性记录.
   - icon: 🤖
     title: 统一模型网关
-    details: 统一管理所有模型的调用, 优化资源利用, 提供模型切换功能.
+    details: Brain 层统一管理 LLM 与 Embedding 调用, 优化配额与重试, 节点无需感知模型细节.
   - icon: 🧩
     title: App 插件体系
     details: 每个 App 都是独立的感知器与执行器, 通过统一 PlatformAPI 与宿主交互. 高度解耦, 按需插拔.
@@ -45,62 +45,59 @@ features:
 
 ## 她是什么
 
-AuroraBot 不是一个普通的聊天机器人，而是一个在本地环境中持续运行的**自循环、自规划的数字生命**。
+AuroraBot 是一个在本地环境中持续运行的**内驱式、自主决策的智能体框架**——她的心跳不等待指令。
 
-她由三层协作者构成：
+她由四层协作者构成：
 
-- **感知与执行层** — 通过可插拔的 App 插件体系接入外部世界
-- **认知与决策层** — 多 Agent 流水线持续消费事件、生成计划、编排动作
-- **记忆与演化层** — 基于图的统一联合记忆系统，让每一次交互都成为演化的养分
+- **应用层（Apps）** — 可插拔的感知器与执行器，通过统一 PlatformAPI 接入外部世界
+- **平台层（Platform）** — 统一管理应用的运行时宿主，负责与上下层双向通信
+- **内核层（Kernel）** — 管理与调度核心，编排事件流与命令流
+- **脑区层（Brain / CortexForge）** — 文件驱动的认知操作系统内核。Node / Agent / Router 节点网络 + 事件总线 + 统一 LLM 网关 + 统一联合记忆
 
 > 她不是在“等待指令”，而是在“持续观察、自主决策、主动行动”。
 
-## 亮点架构
+## 四层架构
 
 ```mermaid
 flowchart LR
-    subgraph APPS["App 插件体系"]
+    subgraph APPS["应用层 (Apps)"]
         QQ["QQ 接入"]
         ALARM["定时提醒"]
         DIARY["日记"]
-        MCP["MCP 适配器"]
     end
 
-    subgraph KERNEL["内核流水线"]
+    subgraph PLATFORM["平台层 (Platform)"]
+        EVENTS["事件队列"]
+        CMDS["命令注册"]
+    end
+
+    subgraph KERNEL["内核层 (Kernel)"]
+        SCHEDULER["心跳调度器"]
+    end
+
+    subgraph BRAIN["脑区层 (Brain)"]
         direction LR
-        PLAN["PlanAgent\n事件→计划"]
-        EXPAND["ExpandAgent\n计划→动作"]
-        EXEC["ExecuteAgent\n执行动作"]
+        NODES["Agent 节点 (有向有环图)"]
+        GATEWAY["LLM / Embedding 网关"]
+        MEMORY["统一联合记忆"]
     end
 
-    subgraph MEMORY["统一联合记忆"]
-        GRAPH["知识图谱"]
-        VEC["向量记忆"]
-        EPISODE["情景记忆"]
-    end
-
-    APPS -->|"AppEvent"| KERNEL
-    KERNEL -->|"invoke_command"| APPS
-    KERNEL <--> MEMORY
+    APPS <-->|"AppEvent / invoke_command"| PLATFORM
+    PLATFORM <-->|"事件 / 命令"| KERNEL
+    KERNEL <-->|"调度 / 状态"| BRAIN
 ```
 
 ### 高度解耦的 App 插件体系
 
 每个 App 都是独立的感知器与执行器，通过统一的 `PlatformAPI` 与宿主交互。接入 QQ、定时器、文件系统、甚至外部 API——都只需要一个 App。
 
-### 多 Agent 自循环的认知-决策-行动框架
+### 有向有环图的脑区 Agent 网络
 
-内核不依赖单一“超级 Agent”，而是将认知过程拆分为多个独立阶段：
+脑区不依赖单一“超级 Agent”，而是由多个 Agent / Router 节点构成有向有环图。节点之间通过文件篮机制传递状态，形成持续运转的认知循环。未来开放脑区节点插件，供第三方扩展认知能力。
 
-| 阶段           | 职责                           |
-| -------------- | ------------------------------ |
-| `PlanAgent`    | 从事件队列中识别意图，生成计划 |
-| `ExpandAgent`  | 将计划展开为可执行的原子动作   |
-| `ExecuteAgent` | 调用 App 命令，执行并回写结果  |
 
-每个心跳周期内，调度器按优先级选择一个 Agent 执行一步，自然形成自循环。
 
-### 基于图的统一联合记忆系统
+### 统一联合记忆
 
 AuroraBot 的记忆不只是“存下来”，而是**结构化地生长**。知识图谱、向量检索与情景记忆融合为一个统一记忆层，让每一次事件、每一次决策都参与记忆演化。
 
@@ -112,23 +109,23 @@ AuroraBot 的记忆不只是“存下来”，而是**结构化地生长**。知
 
 - 任何遵循 MCP 协议的工具都可以成为 AuroraBot 的能力延伸
 - MCP 工具会被自动映射为内核可调用的命令
-- 内核流水线无需感知 MCP 协议细节，由适配容器统一处理
+- 内核无需感知 MCP 协议细节，由适配容器统一处理
 
-> 让 MCP 生态成为你的数字生命的一部分。
+> 让 MCP 生态成为你的能力延伸。
 
 ## 快速导航
 
 完整的架构设计、使用指南与开发文档请 **[访问 AuroraBot 文档站 📖](https://jufirex.github.io/AuroraBot/)**：
 
-| 文档                                                                                  | 说明                                  |
-| ------------------------------------------------------------------------------------- | ------------------------------------- |
-| [项目总览](https://jufirex.github.io/AuroraBot/start/overview.html)                   | 快速了解 AuroraBot 的定位与分层       |
-| [快速开始](https://jufirex.github.io/AuroraBot/start/getting-started.html)            | 从零把项目跑起来                      |
-| [系统架构总览](https://jufirex.github.io/AuroraBot/architecture/system-overview.html) | 理解 App / Platform / Kernel 三层边界 |
-| [内核流水线](https://jufirex.github.io/AuroraBot/architecture/kernel-pipeline.html)   | 深入多阶段 Agent 编排模型             |
-| [平台运行时](https://jufirex.github.io/AuroraBot/architecture/platform-runtime.html)  | 理解宿主与 App 的运行时关系           |
-| [App 开发指南](https://jufirex.github.io/AuroraBot/guide/app-development.html)        | 开发你自己的 App                      |
-| [AUR CLI 路线图](https://jufirex.github.io/AuroraBot/roadmap/aur-cli.html)            | 查看未来规划                          |
+| 文档                                                                                  | 说明                                       |
+| ------------------------------------------------------------------------------------- | ------------------------------------------ |
+| [项目总览](https://jufirex.github.io/AuroraBot/start/overview.html)                   | 快速了解 AuroraBot 的定位与四层分层        |
+| [快速开始](https://jufirex.github.io/AuroraBot/start/getting-started.html)            | 从零把项目跑起来                           |
+| [系统架构总览](https://jufirex.github.io/AuroraBot/architecture/system-overview.html) | 理解 Apps / Platform / Kernel / Brain 四层 |
+| [脑区架构](https://jufirex.github.io/AuroraBot/architecture/brain-architecture.html)  | 深入有向有环图的 Agent 节点网络            |
+| [平台运行时](https://jufirex.github.io/AuroraBot/architecture/platform-runtime.html)  | 理解宿主与 App 的运行时关系                |
+| [App 开发指南](https://jufirex.github.io/AuroraBot/develop/app-development.html)      | 开发你自己的 App                           |
+| [AUR CLI](https://jufirex.github.io/AuroraBot/develop/aur-cli.html)                   | 应用开发工具链                             |
 
 ## 开源致谢
 
