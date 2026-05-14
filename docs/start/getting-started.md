@@ -68,12 +68,22 @@ MEM0_API_KEY=
 uv run bot.py
 ```
 
-此时你的Bot将会以默认人格`小光`启动，但是你还没有手段来与她互动. 你需要启动你的OneBot适配器，例如 [NapCat](https://github.com/NapNeko/NapCatQQ), 然后就可以试着向她发送消息了!
+此时你的Bot将会以默认人格`小光`启动，但是你还没有手段来与她互动. 你可以启动你的应用适配器，例如 [NapCat](https://github.com/NapNeko/NapCatQQ), 然后就可以试着向她发送消息了!
 
 ::: tip
-NapCat 的启动方式参见 [NapCat 官方文档](https://napneko.github.io/guide/boot/Shell)
+由于AuroraBot 是一个基于 NoneBot2 框架的再封装框架, 所以你可以参考 [NapCat 官方文档](https://napneko.github.io/use/integration#nonebot) 来对接你的 NapCat 适配器.
 :::
 
 ::: info
-框架第一适配 NapCat 适配器. 其他适配器将在后续版本中逐渐支持.
+框架第一适配 NapCat 适配器. 其他适配器将在后续测试后逐渐开放.
 :::
+
+## 查看本地文档站
+
+```bash
+cd docs
+npm install
+npm run docs:dev
+```
+
+启动后, 文档将默认在 `localhost:5173/AuroraBot/` 展示.

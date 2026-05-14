@@ -27,12 +27,12 @@ export default withMermaid(
     },
     markdown: {
       container: {
-        tipLabel: '💡 小贴士',
-        warningLabel: '⚠️ 注意',
-        dangerLabel: '💀 危险操作',
-        infoLabel: '🪧 告示牌',
-        detailsLabel: '🔍 查看详情'
-      }
+        tipLabel: "💡 小贴士",
+        warningLabel: "⚠️ 注意",
+        dangerLabel: "💀 危险操作",
+        infoLabel: "🪧 告示牌",
+        detailsLabel: "展开",
+      },
     },
     themeConfig: {
       nav: [
@@ -57,7 +57,8 @@ export default withMermaid(
         // 确保每个 link 以 "/" 开头，否则 VitePress prev/next 匹配会失效
         const prefixSlash = (items: any) => {
           for (const item of items) {
-            if (item.link && !item.link.startsWith("/")) item.link = "/" + item.link;
+            if (item.link && !item.link.startsWith("/"))
+              item.link = "/" + item.link;
             if (item.items) prefixSlash(item.items);
           }
         };
