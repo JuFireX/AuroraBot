@@ -1,7 +1,7 @@
 ---
 title: 脑区架构
 description: CortexForge 意识引擎——基于文件驱动、事件总线与声明式认知拓扑的智能体内核。
-order: 2
+order: 3
 ---
 
 # 脑区架构

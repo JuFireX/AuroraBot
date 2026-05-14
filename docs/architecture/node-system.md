@@ -1,7 +1,7 @@
 ---
 title: 节点系统
 description: Node / Agent / Router 的设计细节——文件描述符、锁策略、状态机与代码对应。
-order: 5
+order: 4
 ---
 
 # 节点系统
@@ -45,11 +45,11 @@ IDLE → READY → RUNNING → IDLE
 
 ### 核心方法
 
-| 方法 | 职责 |
-|------|------|
+| 方法                                | 职责                                                                                                             |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `on_event(event: FileEvent) → bool` | 判断此事件是否应激活本节点。默认遍历 `guards`，命中任意一个即返回 `True`。子类可覆写以实现版本号比对、并发门控等 |
-| `execute() → List[FileUpdate]` | 执行一步认知操作，返回文件变更列表。Agent 调用 LLM，Router 执行纯逻辑 |
-| `on_complete()` | 执行完成钩子。默认重置为 IDLE，子类可保持 READY 等待后续事件 |
+| `execute() → List[FileUpdate]`      | 执行一步认知操作，返回文件变更列表。Agent 调用 LLM，Router 执行纯逻辑                                            |
+| `on_complete()`                     | 执行完成钩子。默认重置为 IDLE，子类可保持 READY 等待后续事件                                                     |
 
 ## Agent
 
@@ -64,6 +64,7 @@ class Agent(Node):
 Agent 的 `execute()` 通常：读取 guards 中的文件 → 调用 `think()` → 将 LLM 输出写入 produces 中的文件。
 
 **设计约束**：
+
 - 不自己调用 LLM API——走 `think()` 方法，内部经过统一 LLM 网关
 - 不直接访问 App 的私有文件
 - 产出是确定性文件，可版本回滚
@@ -77,14 +78,14 @@ class Router(Node):
 
 Router 是控制结构原语。代码中已规划的 Router 类型：
 
-| Router | 功能 |
-|--------|------|
-| `SwitchRouter` | 检查文件内容条件，激活不同下游 |
-| `WaitRouter` | 等待多个文件就绪后触发 |
-| `MergeRouter` | 将多个输入文件汇总为一个 |
-| `LoopRouter` | 维护循环状态，条件满足时重置或终止 |
-| `TerminateRouter` | 关闭一个子图 |
-| `HeartbeatRouter` | 定时产生脉冲事件，驱动自主意识 |
+| Router            | 功能                                           |
+| ----------------- | ---------------------------------------------- |
+| `SwitchRouter`    | 检查文件内容条件，激活不同下游                 |
+| `WaitRouter`      | 等待多个文件就绪后触发                         |
+| `MergeRouter`     | 将多个输入文件汇总为一个                       |
+| `LoopRouter`      | 维护循环状态，条件满足时重置或终止             |
+| `TerminateRouter` | 关闭一个子图                                   |
+| `HeartbeatRouter` | 定时产生脉冲事件，驱动自主意识                 |
 | `BroadcastRouter` | 将冷认知池的结构化文件翻译为热认知池的自然语言 |
 
 ## 文件相关数据结构
@@ -158,14 +159,14 @@ class LockPolicy:
 
 当前代码库中存在两套体系：
 
-| | 旧体系（agent_base.py） | 新体系（base.py） |
-|--|------------------------|-------------------|
-| 基类 | `Agent` → `AgentProposal` / `AgentResult` | `Node` → `Agent` / `Router` |
-| 激活方式 | 调度器轮询 `propose()` | 事件驱动 `on_event(FileEvent)` |
-| 输入 | 直接读 ApplicationHost 事件队列 | 声明 `guards: List[FilePattern]` |
-| 输出 | 调用 `invoke_command()` | 声明 `produces: List[FileDescriptor]` |
-| 文件 | 不感知文件版本 | FileDescriptor + FileEvent + 锁 |
-| 注册 | `agent_factory.py` 字典 | `node_factory.py`（待实现） |
+|          | 旧体系（agent_base.py）                   | 新体系（base.py）                     |
+| -------- | ----------------------------------------- | ------------------------------------- |
+| 基类     | `Agent` → `AgentProposal` / `AgentResult` | `Node` → `Agent` / `Router`           |
+| 激活方式 | 调度器轮询 `propose()`                    | 事件驱动 `on_event(FileEvent)`        |
+| 输入     | 直接读 ApplicationHost 事件队列           | 声明 `guards: List[FilePattern]`      |
+| 输出     | 调用 `invoke_command()`                   | 声明 `produces: List[FileDescriptor]` |
+| 文件     | 不感知文件版本                            | FileDescriptor + FileEvent + 锁       |
+| 注册     | `agent_factory.py` 字典                   | `node_factory.py`（待实现）           |
 
 迁移完成后，旧体系将被移除。当前 `kernel/loop.py` 仍在运行旧体系。
 

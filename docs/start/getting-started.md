@@ -6,37 +6,79 @@ order: 2
 
 # 快速开始
 
-就一件事：用最短的路径把她叫醒，然后知道去哪儿看她活得好不好。
+从环境准备到启动运行，快速把 AuroraBot 跑起来。
 
-## 你要准备好
+::: info
+此版本暂时只支持从源码运行. 后期会提供一键包安装.
+:::
+
+## 前期准备
 
 - Python `3.10+`
-- `uv`
-- Node.js `20+`（只在本地预览文档站时需要）
+- _当你需要本地查看文档站时:_ Node.js `20+`
 
-## 装依赖
+## 克隆仓库
 
 ```bash
+git clone https://github.com/JuFireX/AuroraBot.git
+cd AuroraBot
+```
+
+::: tip
+或者你可以通过 [Releases](https://github.com/JuFireX/AuroraBot/releases) 下载最新稳定版本的源码压缩包, 并解压到 `AuroraBot` 目录下.
+:::
+
+## 安装依赖
+
+我们推荐使用 [uv](https://github.com/astral-sh/uv) 管理依赖:
+
+```bash
+pip install uv
 uv sync
 ```
 
-## 启动
+## 配置密钥
 
 ```bash
-uv run .\bot.py
+cp .env.example .env
 ```
 
-## 怎么跑
+::: tip
+在 `.env` 中配置你的密钥:
 
-通过环境变量 `RUN_MODE` 告诉她想以什么身份起床：
+```
+# 适配器配置
+ONEBOT_ACCESS_TOKEN=
 
-| 模式    | 干什么               |
-| ------- | -------------------- |
-| `app`   | 只跑身体（应用循环） |
-| `agent` | 只跑脑子（内核循环） |
-| `prod`  | 身体和脑子一起跑     |
+# 模型配置
+DEEPSEEK_URL_BASE=https://api.deepseek.com #默认为Deepseek
+DEEPSEEK_API_KEY=
+LITELLM_MODEL=deepseek/deepseek-v4-flash #默认为Deepseek
 
-## 本地预览文档站
+# 记忆配置
+MEM0_API_KEY=
+```
+
+更多配置说明见 [配置说明](./configuration)
+:::
+
+## 启动Bot
+
+```bash
+uv run bot.py
+```
+
+此时你的Bot将会以默认人格`小光`启动，但是你还没有手段来与她互动. 你可以启动你的应用适配器，例如 [NapCat](https://github.com/NapNeko/NapCatQQ), 然后就可以试着向她发送消息了!
+
+::: tip
+由于AuroraBot 是一个基于 NoneBot2 框架的再封装框架, 所以你可以参考 [NapCat 官方文档](https://napneko.github.io/use/integration#nonebot) 来对接你的 NapCat 适配器.
+:::
+
+::: info
+框架第一适配 NapCat 适配器. 其他适配器将在后续测试后逐渐开放.
+:::
+
+## 查看本地文档站
 
 ```bash
 cd docs
@@ -44,37 +86,4 @@ npm install
 npm run docs:dev
 ```
 
-## 目录速览
-
-```text
-AuroraBot/
-  apps/                  # 应用层（她的感官）
-  docs/                  # 你现在在看的文档站
-  src/
-    brain/
-      agents/            # 内核内部的 stage agent 们
-      kernel/            # 内核编排层
-    platform/            # 应用宿主层
-    main.py              # 启动入口
-    config.py            # 全局配置
-  tests/                 # 测试
-  pyproject.toml         # Python 依赖与工具配置
-```
-
-## 跑起来后看哪里
-
-想看她活没活着、在干什么，盯这几个地方：
-
-| 路径                       | 里面放了什么      |
-| -------------------------- | ----------------- |
-| `data/app_data/*`          | 各 app 的私有数据 |
-| `data/kernel/plans.json`   | 内核计划队列      |
-| `data/kernel/actions.json` | 内核动作队列      |
-| `data/queues/events.json`  | 宿主事件队列快照  |
-| `logs/aurora.log`          | 运行日志          |
-
-## 接下来读哪个
-
-- 想搞清楚她长什么样：读 [系统架构总览](../architecture/system-overview.html)
-- 想看她脑子怎么转：读 [内核运行时](../architecture/kernel-runtime.html)
-- 想写个新 app：读 [App 开发指南](../develop/app-development.html)
+启动后, 文档将默认在 `localhost:5173/AuroraBot/` 展示.
