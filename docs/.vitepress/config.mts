@@ -25,6 +25,15 @@ export default withMermaid(
         curve: "basis",
       },
     },
+    markdown: {
+      container: {
+        tipLabel: '💡 小贴士',
+        warningLabel: '⚠️ 注意',
+        dangerLabel: '💀 危险操作',
+        infoLabel: '🪧 告示牌',
+        detailsLabel: '🔍 查看详情'
+      }
+    },
     themeConfig: {
       nav: [
         { text: "首页", link: "/" },
