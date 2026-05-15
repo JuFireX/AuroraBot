@@ -1,13 +1,16 @@
 from __future__ import annotations
-
 from abc import abstractmethod
+import asyncio
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from fnmatch import fnmatch
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 from src.utils.time_utils import now_text
+
+if TYPE_CHECKING:
+    from src.platform.application_host import ApplicationHost
 
 logger = get_logger("NodeBase")
 
@@ -106,6 +109,8 @@ class Node:
     def __init__(self, node_id: str) -> None:
         self.id = node_id
         self.state = NodeState.IDLE
+        self._ready_event: asyncio.Event = asyncio.Event()
+        self._bus: Any = None
 
     @property
     @abstractmethod
@@ -162,6 +167,48 @@ class Node:
         if self.state != NodeState.ERROR:
             self.state = NodeState.IDLE
 
+    async def run(self) -> None:
+        """节点主循环。
+
+        独立协程，被 :class:`Circuit` 以 ``asyncio.Task`` 托管。
+        在工作流中循环等待 ``_ready_event`` 被事件总线置位，
+        然后执行 :meth:`execute` 并将 :class:`FileUpdate` 通过
+        总线落盘、触发下游节点。
+
+        ``CancelledError`` 将干净终止本循环。
+        """
+        while self.state != NodeState.TERMINATED:
+            try:
+                await self._ready_event.wait()
+            except asyncio.CancelledError:
+                return
+            self._ready_event.clear()
+
+            if self.state == NodeState.TERMINATED:
+                return
+
+            self.state = NodeState.RUNNING
+            try:
+                updates = await self.execute()
+            except asyncio.CancelledError:
+                self.on_complete()
+                continue
+            except Exception:
+                logger.exception(f"节点 {self.name}({self.id}) 执行异常")
+                self.state = NodeState.ERROR
+                continue
+
+            if self._bus is not None:
+                for update in updates:
+                    try:
+                        await self._bus.apply_update(update, self.id)
+                    except Exception:
+                        logger.exception(
+                            f"节点 {self.name}({self.id}) 写文件异常: {update.descriptor.path}"
+                        )
+
+            self.on_complete()
+
 
 class Agent(Node):
     """使用 LLM 进行推理的认知型节点。
@@ -183,24 +230,25 @@ class Agent(Node):
     def __init__(
         self,
         node_id: str,
-        host: ApplicationHost,  # noqa: F821  # 运行时由 agent_factory 注入
+        host: "ApplicationHost",  # noqa: F821  # 运行时由 agent_factory 注入
         *,
         system_prompt: str = "",
     ) -> None:
         super().__init__(node_id)
         self._host = host
         self._system_prompt = system_prompt
+        self._current_think_task: asyncio.Task[Any] | None = None
 
     @property
     def type(self) -> str:
         return "agent"
 
     @property
-    def host(self) -> ApplicationHost:  # noqa: F821
+    def host(self) -> "ApplicationHost":  # noqa: F821
         return self._host
 
     @host.setter
-    def host(self, value: ApplicationHost) -> None:  # noqa: F821
+    def host(self, value: "ApplicationHost") -> None:  # noqa: F821
         self._host = value
 
     @property
@@ -217,6 +265,9 @@ class Agent(Node):
         这是一个便捷方法，封装 :func:`src.brain.ai.llm_gate.llm_chat`，
         并自动在消息列表最前面注入系统提示词。
 
+        LLM 调用被包裹在独立的 :class:`asyncio.Task` 中，外部可通过
+        :meth:`cancel_think` 打断当前推理以节省 token。
+
         Parameters
         ----------
         messages : list[dict[str, str]]
@@ -228,6 +279,11 @@ class Agent(Node):
         -------
         str
             模型返回的文本。
+
+        Raises
+        ------
+        asyncio.CancelledError
+            当外部调用 :meth:`cancel_think` 打断请求时抛出。
         """
         from src.brain.ai.llm_gate import llm_chat
 
@@ -236,7 +292,30 @@ class Agent(Node):
                 {"role": "system", "content": self._system_prompt},
                 *messages,
             ]
-        return await llm_chat(messages, **kwargs)
+
+        self._current_think_task = asyncio.ensure_future(llm_chat(messages, **kwargs))
+        try:
+            return await self._current_think_task
+        finally:
+            self._current_think_task = None
+
+    def cancel_think(self) -> bool:
+        """打断当前正在进行的 LLM 推理。
+
+        取消 :meth:`think` 内部持有的 asyncio Task。
+        调用后，正在等待 ``think()`` 的协程将收到
+        :class:`asyncio.CancelledError`。
+
+        Returns
+        -------
+        bool
+            是否确实取消了一个正在运行的 LLM 请求。
+        """
+        task = self._current_think_task
+        if task is not None and not task.done():
+            task.cancel()
+            return True
+        return False
 
 
 class Router(Node):

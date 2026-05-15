@@ -10,7 +10,7 @@ from src.platform.app_config import app_startup, load_apps_config
 from src.platform.app_discovery import instantiate_app
 from src.platform.application_host import app_host
 from src.platform.loop import run_app_loop
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 
 logger = get_logger("Main")
 driver = get_driver()

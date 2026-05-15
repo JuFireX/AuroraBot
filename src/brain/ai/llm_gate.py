@@ -5,7 +5,7 @@ import litellm
 from litellm import acompletion
 
 from src.config import Config
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 
 logger = get_logger("LLMGate")
 
@@ -39,6 +39,8 @@ async def llm_chat(
     TODO 暂时不得传入 model 参数
 
     TODO 后续需要补充通过协程协作打断请求的说明
+    当前打断机制在 :meth:`Agent.cancel_think` 层面实现，通过取消
+    包裹 ``llm_chat`` 的 asyncio Task 来中断请求以节省 token。
 
     本函数是项目内所有 LLM 调用的唯一入口。调用方（agents）不得自行
     选择或切换模型 —— 传入 ``model`` 参数将直接触发 ``PermissionError``。
@@ -105,7 +107,7 @@ async def llm_chat(
         )
 
     try:
-        # TODO 支持打断请求
+        # TODO 支持打断请求: 当前通过 Agent.cancel_think() 取消包裹的 asyncio Task
         response = await acompletion(**litellm_kwargs)
     except litellm.exceptions.AuthenticationError as exc:
         raise LLMGateError(

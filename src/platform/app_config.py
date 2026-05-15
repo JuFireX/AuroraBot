@@ -11,7 +11,7 @@ from src.platform.app_discovery import (
     discover_apps,
     startup_defaults,
 )
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 
 logger = get_logger("AppConfig")
 

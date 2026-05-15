@@ -10,7 +10,7 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageEvent
 
 from src.platform.contracts import AppEvent
 from src.utils.time_utils import now_text
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 
 if TYPE_CHECKING:
     from src.platform.application_api import PlatformAPI

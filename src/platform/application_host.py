@@ -10,7 +10,7 @@ from src.platform.application_api import PlatformAPI
 from src.platform.application_protocol import ApplicationProtocol
 from src.platform.contracts import AppEvent, CommandSpec
 from src.platform.manifest import CommandDecl, Manifest
-from src.utils.Logger import get_logger
+from src.utils.log_utils import get_logger
 
 logger = get_logger("ApplicationHost")
 
