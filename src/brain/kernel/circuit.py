@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from src.brain.kernel.base import NodeState
+from src.brain.kernel.base import FileUpdate, NodeState
 from src.brain.kernel.event_bus import FileEventBus
 from src.utils.log_utils import get_logger
 
@@ -91,7 +91,7 @@ class Circuit:
         """向电路注入一个外部文件事件。
 
         调用后，事件进入总线队列，匹配的节点将被激活并开始执行。
-        这是电路的唯一外部入口。
+        这是电路的外部入口之一。
 
         Parameters
         ----------
@@ -101,6 +101,27 @@ class Circuit:
         if self._bus is None:
             raise RuntimeError("电路未启动，无法注入事件")
         self._bus.publish(event)
+
+    async def apply_update(self, update: FileUpdate, node_id: str = "system") -> None:
+        """向电路写入一个文件变更并触发下游事件。
+
+        将 :class:`FileUpdate` 通过总线落盘，落盘后自动生成
+        ``change_type="write"`` 的 :class:`FileEvent` 并重新注入总线，
+        匹配的节点将被激活。
+
+        这是迁移期事件桥接的主要入口——外部系统（如 ApplicationHost）
+        通过此方法将事件转化为文件，驱动节点图中的下游节点。
+
+        Parameters
+        ----------
+        update : FileUpdate
+            要落盘的文件变更。
+        node_id : str
+            触发写入的节点标识，默认 ``"system"``。
+        """
+        if self._bus is None:
+            raise RuntimeError("电路未启动，无法写入文件")
+        await self._bus.apply_update(update, node_id)
 
     async def __aenter__(self) -> Circuit:
         await self.start()
