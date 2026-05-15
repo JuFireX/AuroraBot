@@ -37,6 +37,16 @@ pip install uv
 uv sync
 ```
 
+::: tip
+如果你的网络环境不好导致`pip`下载缓慢, 你可以尝试使用以下命令来加速下载:
+
+```bash
+pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
+uv sync
+```
+
+:::
+
 ## 配置密钥
 
 ```bash
@@ -68,7 +78,9 @@ MEM0_API_KEY=
 uv run bot.py
 ```
 
+::: tip
 此时你的Bot将会以默认人格`小光`启动，但是你还没有手段来与她互动. 你可以启动你的应用适配器，例如 [NapCat](https://github.com/NapNeko/NapCatQQ), 然后就可以试着向她发送消息了!
+:::
 
 ::: tip
 由于AuroraBot 是一个基于 NoneBot2 框架的再封装框架, 所以你可以参考 [NapCat 官方文档](https://napneko.github.io/use/integration#nonebot) 来对接你的 NapCat 适配器.
@@ -78,7 +90,7 @@ uv run bot.py
 框架第一适配 NapCat 适配器. 其他适配器将在后续测试后逐渐开放.
 :::
 
-## 查看本地文档站
+## 离线文档
 
 ```bash
 cd docs
@@ -86,4 +98,6 @@ npm install
 npm run docs:dev
 ```
 
-启动后, 文档将默认在 `localhost:5173/AuroraBot/` 展示.
+::: tip
+文档站默认启动在 `localhost:5173/AuroraBot/` 上. 打开浏览器访问即可.
+:::

@@ -216,4 +216,4 @@ App 从出生到退休，大致是这么个过程：
 ## 继续阅读
 
 - 想理解平台如何调度 App：读 [平台运行时](../architecture/platform-runtime.html)
-- 想理解命令怎么最终被执行：读 [脑区架构](../architecture/brain-architecture.html)
+- 想理解命令怎么最终被执行：读 [认知架构](../architecture/brain-architecture.html)

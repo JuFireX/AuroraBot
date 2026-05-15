@@ -6,7 +6,7 @@ order: 4
 
 # 节点系统
 
-脑区层的认知能力由节点承载。节点不是"AI Agent"的简单封装——它是文件驱动认知拓扑中的**原子工作单元**。代码实现见 `src/brain/kernel/base.py`。
+认知层的认知能力由节点承载。节点不是"AI Agent"的简单封装——它是文件驱动认知拓扑中的**原子工作单元**。代码实现见 `src/brain/kernel/base.py`。
 
 ## 类的层次
 
@@ -172,6 +172,5 @@ class LockPolicy:
 
 ## 下一步阅读
 
-- 想看完整的认知拓扑图：读 [脑区架构](./brain-architecture.html)
+- 想看完整的认知拓扑图：读 [认知架构](./brain-architecture.html)
 - 想理解调度机制：读 [内核运行时](./kernel-runtime.html)
-- 想看设计白皮书原文：`.trae/documents/关于脑区agent的进一步想法.md`

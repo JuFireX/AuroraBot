@@ -29,11 +29,11 @@ DEFAULT_AGENT_KEYS = ("plan", "expand", "execute")
 
 这三个 Agent 对应旧流水线的三个阶段。注册表在 `agent_factory.py` 中：
 
-| Key | 类 | 职责 |
-|-----|-----|------|
-| `plan` | `PlanAgent` | 从事件队列识别意图，生成计划 |
-| `expand` | `ExpandAgent` | 将计划展开为原子动作 |
-| `execute` | `ExecuteAgent` | 调用 App 命令执行 |
+| Key       | 类             | 职责                         |
+| --------- | -------------- | ---------------------------- |
+| `plan`    | `PlanAgent`    | 从事件队列识别意图，生成计划 |
+| `expand`  | `ExpandAgent`  | 将计划展开为原子动作         |
+| `execute` | `ExecuteAgent` | 调用 App 命令执行            |
 
 ## 目标态：事件总线 + Node 调度
 
@@ -51,13 +51,13 @@ DEFAULT_AGENT_KEYS = ("plan", "expand", "execute")
 
 关键变化：
 
-| 维度 | 旧调度 | 新调度 |
-|------|--------|--------|
-| 触发方式 | 定时轮询（interval） | 事件驱动（文件变更） |
-| 调度对象 | Agent（propose / step） | Node（on_event / execute） |
-| 激活判断 | Agent 内部逻辑 | 声明式 `guards` + `FileEvent` |
-| 产出 | 命令调用 | `FileUpdate` + 命令调用 |
-| 流程控制 | 无（硬编码顺序） | Router 节点（Switch / Loop / Merge） |
+| 维度     | 旧调度                  | 新调度                               |
+| -------- | ----------------------- | ------------------------------------ |
+| 触发方式 | 定时轮询（interval）    | 事件驱动（文件变更）                 |
+| 调度对象 | Agent（propose / step） | Node（on_event / execute）           |
+| 激活判断 | Agent 内部逻辑          | 声明式 `guards` + `FileEvent`        |
+| 产出     | 命令调用                | `FileUpdate` + 命令调用              |
+| 流程控制 | 无（硬编码顺序）        | Router 节点（Switch / Loop / Merge） |
 
 ## HeartbeatRouter — 自主意识脉冲
 
@@ -87,5 +87,5 @@ src/brain/
 ## 下一步阅读
 
 - 想理解 Node 基类细节：读 [节点系统](./node-system.html)
-- 想理解脑区全貌：读 [脑区架构](./brain-architecture.html)
+- 想理解认知全貌：读 [认知架构](./brain-architecture.html)
 - 想看目标态认知拓扑：设计白皮书 `CortexForge 0.7`
