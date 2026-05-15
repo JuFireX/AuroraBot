@@ -1,6 +1,6 @@
 apps:
   qq:
-    enabled: false
+    enabled: true
     startup:
       enable_listener: true
   diary:

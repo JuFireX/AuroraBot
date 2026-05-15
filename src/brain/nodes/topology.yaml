@@ -3,8 +3,10 @@
 # 节点自身声明 guards（守护什么文件）和 produces（产出什么文件）。
 nodes:
   planner:
-    enabled: true
+    enabled: false
   expander:
-    enabled: true
+    enabled: false
   executor:
+    enabled: false
+  example:
     enabled: true

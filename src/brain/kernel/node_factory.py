@@ -6,7 +6,7 @@ import yaml
 
 from src.brain.kernel.circuit import Circuit
 from src.brain.kernel.base import Node
-from src.brain.nodes.agents import ExecuteNode, ExpandNode, PlanNode
+from src.brain.nodes.agents import ExampleNode, ExecuteNode, ExpandNode, PlanNode
 from src.config import Config
 from src.utils.log_utils import get_logger
 
@@ -20,10 +20,11 @@ NODE_REGISTRY: dict[str, type[Node]] = {
     "planner": PlanNode,
     "expander": ExpandNode,
     "executor": ExecuteNode,
+    "example": ExampleNode,
 }
 
 # 部分节点构造时需要 host 引用
-NODE_NEEDS_HOST: frozenset[str] = frozenset({"expander", "executor"})
+NODE_NEEDS_HOST: frozenset[str] = frozenset({"expander", "executor", "example"})
 
 
 def _load_topology_config() -> dict[str, Any]:
