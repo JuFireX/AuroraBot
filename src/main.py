@@ -48,6 +48,7 @@ async def startup_agent() -> None:
     if Config.RUN_MODE in ["agent", "core", "prod"]:
         # 启动图结构电路（替代旧 run_agent_loop 轮询调度）
         _circuit = build_circuit(app_host)
+        await _circuit.start()  # 先启动电路，确保 _bus 就绪
         _bridge_task = asyncio.create_task(
             run_event_bridge(
                 app_host,
@@ -56,7 +57,6 @@ async def startup_agent() -> None:
                 interval=Config.HEARTBEAT_INTERVAL,
             )
         )
-        await _circuit.start()
 
 
 @driver.on_shutdown
