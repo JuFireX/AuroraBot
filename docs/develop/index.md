@@ -5,4 +5,4 @@ order: 3
 
 # 开发
 
-动手写 AuroraBot 应用与脑区节点。
+动手写 AuroraBot 应用与认知节点。

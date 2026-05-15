@@ -6,8 +6,6 @@ order: 2
 
 # 平台运行时
 
-这一页只看 `platform` 和 `app` 这一层——不聊内核内部那些弯弯绕绕。
-
 **挼挼如是说**
 
 > 打个比方：platform 是插座，app 是电器。插座不关心你插的是电饭煲还是手机充电器，它只负责通电。app 也不关心电是怎么发的，它只负责干自己的活。
@@ -20,7 +18,7 @@ order: 2
 - 读 `manifest.yaml`，搞清楚每个 app 能干什么
 - 给每个 app 塞一根 `PlatformAPI` 的管子
 - 把命令记在表上、把事件排进队列
-- 管 app 的 startup -> tick -> stop 这一生
+- 管理 app 从启动到停止的完整生命周期
 
 `Apps`：
 
@@ -79,11 +77,11 @@ flowchart TB
 
 已经提供的接口：
 
-- `register()` — 让 app 住进来
-- `tick()` — 敲一次门，让大家干活
-- `stop_all()` — 轰所有人走
-- `drain_events()` — 把积压事件倒出来
-- `invoke_command()` — 让某个 app 干一件事
+- `register()` — 注册 app 实例
+- `tick()` — 驱动所有 app 执行一个周期
+- `stop_all()` — 停止全部应用
+- `drain_events()` — 取出积压事件
+- `invoke_command()` — 调用指定 app 的命令
 
 ### `PlatformAPI` — 管子
 
@@ -104,7 +102,7 @@ flowchart TB
 | `diary` | 被命令叫醒            | `write_diary` 写日记        | `diary.written`                  | `diaries.json`               |
 
 ::: info
-内建应用还在高速迭代中, 将会在后续版本更新接近真实 App 的丰富功能.
+内建应用还在持续迭代中，后续版本将逐步完善功能。
 :::
 
 ## 下一步阅读

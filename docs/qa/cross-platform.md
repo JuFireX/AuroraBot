@@ -10,7 +10,7 @@ order: 1
 
 当前版本**仅支持 QQ 接入**, 通过 NapCat + `nonebot-adapter-onebot` 与 QQ 通信。
 
-但 AuroraBot 的架构从设计之初就是平台无关的 -- `apps` 层是可插拔的感知器与执行器, 每个 App 通过统一的 `PlatformAPI` 与宿主交互。换平台只需换 App, 不需要动内核和脑区。
+但 AuroraBot 的架构从设计之初就是平台无关的 -- `apps` 层是可插拔的感知器与执行器, 每个 App 通过统一的 `PlatformAPI` 与宿主交互。换平台只需换 App, 不需要动内核和认知。
 
 ---
 
@@ -122,7 +122,7 @@ AuroraBot 正在设计 **MCP (Model Context Protocol) 适配容器**, 让任意 
 
 ### 长期: 统一多平台体验
 
-最终图景是一个 **一份脑区, 多端感知** 的智能体:
+最终图景是一个 **一份认知, 多端感知** 的智能体:
 
 ```mermaid
 flowchart LR
@@ -134,7 +134,7 @@ flowchart LR
         MCP["mcp App"]
     end
 
-    subgraph CORE["平台层 + 内核层 + 脑区层"]
+    subgraph CORE["平台层 + 内核层 + 认知层"]
         PLATFORM["Platform"]
         KERNEL["Kernel"]
         BRAIN["Brain / 统一记忆"]
@@ -160,9 +160,9 @@ flowchart LR
     PLATFORM --> TOOL
 ```
 
-- 同一个大脑 (脑区层) 处理来自不同平台的输入
+- 同一个大脑 (认知层) 处理来自不同平台的输入
 - 统一联合记忆在所有平台间共享, 跨平台上下文无缝衔接
-- App 只负责"感知"和"执行", 不参与决策 -- 决策由内核 + 脑区统一做出
+- App 只负责"感知"和"执行", 不参与决策 -- 决策由内核 + 认知统一做出
 - 用户可以随时添加新的 App 来接入新平台, 无需修改内核
 
 ---
