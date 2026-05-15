@@ -1,0 +1,12 @@
+# 认知拓扑电路节点配置
+# 每个条目对应一个可启用的节点。enabled: false 则跳过装配。
+# 节点自身声明 guards（守护什么文件）和 produces（产出什么文件）。
+nodes:
+  planner:
+    enabled: false
+  expander:
+    enabled: false
+  executor:
+    enabled: false
+  example:
+    enabled: true
