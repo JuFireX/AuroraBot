@@ -1,16 +1,16 @@
 # Agent 节点——LLM 驱动的认知型节点
-from .example_node import ExampleNode
-from .expand_node import ExpandNode
-from .execute_node import ExecuteNode
+from .example_agent import ExampleAgent
+from .expand_agent import ExpandAgent
+from .execute_agent import ExecuteAgent
 from .goal_generator_agent import GoalGeneratorAgent
-from .plan_node import PlanNode
+from .plan_agent import PlanAgent
 from .reflex_learner_agent import ReflexLearnerAgent
 
 __all__ = [
-    "ExampleNode",
-    "ExecuteNode",
-    "ExpandNode",
+    "ExampleAgent",
+    "ExecuteAgent",
+    "ExpandAgent",
     "GoalGeneratorAgent",
-    "PlanNode",
+    "PlanAgent",
     "ReflexLearnerAgent",
 ]

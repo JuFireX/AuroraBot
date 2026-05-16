@@ -43,7 +43,7 @@ _PLAN_SYSTEM_PROMPT = """\
 """
 
 
-class PlanNode(Agent):
+class PlanAgent(Agent):
     """从外部事件生成计划的 Agent 节点。
 
     守护 ``inbox/event_*.json`` 文件，当新的外部事件到达时，

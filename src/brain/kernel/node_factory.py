@@ -7,11 +7,11 @@ import yaml
 from src.brain.kernel.circuit import Circuit
 from src.brain.kernel.base import Node
 from src.brain.nodes.agents import (
-    ExampleNode,
-    ExecuteNode,
-    ExpandNode,
+    ExampleAgent,
+    ExecuteAgent,
+    ExpandAgent,
     GoalGeneratorAgent,
-    PlanNode,
+    PlanAgent,
     ReflexLearnerAgent,
 )
 from src.brain.nodes.routers import (
@@ -32,10 +32,10 @@ logger = get_logger("NodeFactory")
 
 # 节点注册表 —— 新节点加在这里
 NODE_REGISTRY: dict[str, type[Node]] = {
-    "planner": PlanNode,
-    "expander": ExpandNode,
-    "executor": ExecuteNode,
-    "example": ExampleNode,
+    "planner": PlanAgent,
+    "expander": ExpandAgent,
+    "executor": ExecuteAgent,
+    "example": ExampleAgent,
     "switch": SwitchRouter,
     "merge": MergeRouter,
     "wait": WaitRouter,

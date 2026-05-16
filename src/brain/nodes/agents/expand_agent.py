@@ -52,7 +52,7 @@ _EXPAND_SYSTEM_PROMPT = """\
 """
 
 
-class ExpandNode(Agent):
+class ExpandAgent(Agent):
     """将 plan 展开为具体 action 的 Agent 节点。
 
     守护 ``plans/plan_*.json`` 文件，当新的 pending plan 到达时，

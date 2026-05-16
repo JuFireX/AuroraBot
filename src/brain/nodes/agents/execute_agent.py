@@ -50,7 +50,7 @@ status 取值：
 """
 
 
-class ExecuteNode(Agent):
+class ExecuteAgent(Agent):
     """执行 action 并理解结果的 Agent 节点。
 
     守护 ``actions/action_*.json`` 文件，当新的 pending action 到达时，
