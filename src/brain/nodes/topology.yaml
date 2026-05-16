@@ -1,12 +1,47 @@
 # 认知拓扑电路节点配置
 # 每个条目对应一个可启用的节点。enabled: false 则跳过装配。
 # 节点自身声明 guards（守护什么文件）和 produces（产出什么文件）。
+#
+# Router 节点可通过 config 块传入条件参数，例如：
+#   switch:
+#     enabled: false
+#     config:
+#       guard_pattern: "plans/plan_*.json"
+#       condition_field: "priority"
+#       condition_op: ">"
+#       condition_value: 70
+#       true_trigger: "router/switch/urgent.trigger"
+#       false_trigger: "router/switch/normal.trigger"
 nodes:
   planner:
-    enabled: false
+    enabled: true
   expander:
-    enabled: false
+    enabled: true
   executor:
-    enabled: false
+    enabled: true
   example:
+    enabled: false
+  switch:
+    enabled: true
+  merge:
+    enabled: true
+  wait:
+    enabled: true
+  heartbeat:
+    enabled: true
+    config:
+      interval_sec: 300
+  goal_generator:
+    enabled: true
+    config:
+      cooldown_ticks: 6
+  reflex:
+    enabled: true
+    config:
+      min_confidence: 0.7
+  reflex_learner:
+    enabled: true
+    config:
+      cooldown_ticks: 12
+  memory:
     enabled: true
