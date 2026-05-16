@@ -72,10 +72,14 @@ class GoalGeneratorAgent(Agent):
 
     @property
     def guards(self) -> list[FilePattern]:
+        if self._config_watch is not None:
+            return [FilePattern(p) for p in self._config_watch]
         return [FilePattern("heartbeat/tick.json")]
 
     @property
     def produces(self) -> list[FileDescriptor]:
+        if self._config_emit is not None:
+            return [FileDescriptor(p) for p in self._config_emit]
         return [FileDescriptor("intent/goal.json")]
 
     async def execute(self) -> list[FileUpdate]:

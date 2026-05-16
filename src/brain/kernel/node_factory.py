@@ -46,18 +46,35 @@ NODE_REGISTRY: dict[str, type[Node]] = {
     "memory": MemoryAgent,
 }
 
-# 部分节点构造时需要 host 引用
-NODE_NEEDS_HOST: frozenset[str] = frozenset({"expander", "executor", "example"})
+# 节点构造时是否需要 host 引用（按 type 判断）
+NODE_NEEDS_HOST: frozenset[str] = frozenset(
+    {
+        "expander",
+        "executor",
+        "example",
+    }
+)
 
-# 部分节点通过 topology.yaml 的 config 块传入参数
-NODE_ACCEPTS_CONFIG: frozenset[str] = frozenset({
-    "switch", "merge", "wait",
-    "heartbeat", "goal_generator", "reflex", "reflex_learner", "memory",
-})
+# 节点构造时是否接收 **config 参数（按 type 判断）
+NODE_ACCEPTS_CONFIG: frozenset[str] = frozenset(
+    {
+        "switch",
+        "merge",
+        "wait",
+        "heartbeat",
+        "goal_generator",
+        "reflex",
+        "reflex_learner",
+        "memory",
+    }
+)
 
 
-def _load_topology_config() -> dict[str, Any]:
-    """读取 ``topology.yaml``，返回节点头部配置。"""
+# ── 拓扑配置加载 ──────────────────────────────────
+
+
+def _load_topology_config() -> list[dict[str, Any]]:
+    """读取 ``topology.yaml``，返回归一化的节点配置列表。"""
     path = Config.TOPOLOGY_CONFIG
     try:
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -73,39 +90,53 @@ def _load_topology_config() -> dict[str, Any]:
         return _default_topology()
 
     raw_nodes = payload.get("nodes")
-    if not isinstance(raw_nodes, dict):
-        logger.warning("拓扑配置缺少 nodes 字段，使用全量默认配置")
-        return _default_topology()
+    if isinstance(raw_nodes, list):
+        return _normalize_list(raw_nodes)
 
-    return _normalize(raw_nodes)
-
-
-def _default_topology() -> dict[str, Any]:
-    """全量启用所有注册节点。"""
-    return {name: {"enabled": True} for name in NODE_REGISTRY}
+    logger.warning("拓扑配置缺少 nodes 字段或格式错误，使用全量默认配置")
+    return _default_topology()
 
 
-def _normalize(raw_nodes: dict[str, Any]) -> dict[str, Any]:
-    """将 ``{name: {enabled: true, config: {...}}}`` 归一化，未知节点名直接丢弃。"""
-    normalized: dict[str, Any] = {}
-    for name, spec in raw_nodes.items():
-        if name not in NODE_REGISTRY:
-            logger.warning(f"拓扑配置包含未知节点: {name}，已忽略")
+def _default_topology() -> list[dict[str, Any]]:
+    """全量启用所有注册节点，各一个实例（id=类型名）。"""
+    return [{"id": name, "type": name} for name in sorted(NODE_REGISTRY)]
+
+
+def _normalize_list(raw_nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """归一化新版 list 格式，未知 type 丢弃。"""
+    normalized: list[dict[str, Any]] = []
+    for i, entry in enumerate(raw_nodes):
+        if not isinstance(entry, dict):
             continue
-        if not isinstance(spec, dict):
-            spec = {}
-        normalized[name] = {
-            "enabled": bool(spec.get("enabled", True)),
-            "config": spec.get("config", {}) if isinstance(spec.get("config"), dict) else {},
-        }
+        node_type = entry.get("type")
+        if node_type not in NODE_REGISTRY:
+            logger.warning(f"拓扑配置包含未知节点类型: {node_type!r}，已忽略")
+            continue
+        normalized.append(
+            {
+                "id": str(entry.get("id", f"{node_type}-{i}")),
+                "type": node_type,
+                "enabled": bool(entry.get("enabled", True)),
+                "watch": entry.get("watch"),  # None = 不覆盖，沿用类默认值
+                "emit": entry.get("emit"),  # None = 不覆盖，沿用类默认值
+                "config": (
+                    entry.get("config", {})
+                    if isinstance(entry.get("config"), dict)
+                    else {}
+                ),
+            }
+        )
     return normalized
+
+
+# ── 电路构建 ──────────────────────────────────────
 
 
 def build_circuit(host: ApplicationHost) -> Circuit:  # noqa: F821
     """从 ``topology.yaml`` 读取配置，构造认知拓扑电路。
 
-    遍历 ``NODE_REGISTRY``，按配置启用/禁用。已启用的节点逐
-    个实例化并注入 ``Circuit``。
+    遍历邻接表条目，逐条实例化节点并注入 ``Circuit``。
+    同类型可多实例（不同 id/watch/emit/config）。
 
     Parameters
     ----------
@@ -120,24 +151,33 @@ def build_circuit(host: ApplicationHost) -> Circuit:  # noqa: F821
     topology = _load_topology_config()
     instances: list[Node] = []
 
-    for name in sorted(NODE_REGISTRY):
-        entry = topology.get(name)
-        if entry is None or not entry.get("enabled", False):
-            logger.info(f"节点已禁用: {name}")
-            continue
-
-        node_cls = NODE_REGISTRY[name]
+    for entry in topology:
+        node_id = entry["id"]
+        node_type = entry["type"]
         node_config = entry.get("config", {})
 
-        if name in NODE_ACCEPTS_CONFIG:
-            node = node_cls(name, **node_config)
-        elif name in NODE_NEEDS_HOST:
-            node = node_cls(name, host)
+        if not entry.get("enabled", False):
+            logger.info(f"节点已禁用: {node_id} ({node_type})")
+            continue
+
+        node_cls = NODE_REGISTRY[node_type]
+
+        # 构造 —— 按类型的构造函数签名分发
+        if node_type in NODE_ACCEPTS_CONFIG:
+            node = node_cls(node_id, **node_config)
+        elif node_type in NODE_NEEDS_HOST:
+            node = node_cls(node_id, host)
         else:
-            node = node_cls(name)
+            node = node_cls(node_id)
+
+        # 覆盖 guards / produces（可选，来自邻接表条目的 watch / emit）
+        if entry.get("watch") is not None:
+            node._config_watch = entry["watch"]
+        if entry.get("emit") is not None:
+            node._config_emit = entry["emit"]
 
         instances.append(node)
-        logger.info(f"节点已装配: {name} ({node_cls.__name__})")
+        logger.info(f"节点已装配: {node_id} ({node_cls.__name__})")
 
     if not instances:
         logger.warning("电路没有装配任何节点 — 空转")
