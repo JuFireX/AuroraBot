@@ -14,16 +14,34 @@
 #       false_trigger: "router/switch/normal.trigger"
 nodes:
   planner:
-    enabled: false
-  expander:
-    enabled: false
-  executor:
-    enabled: false
-  example:
     enabled: true
+  expander:
+    enabled: true
+  executor:
+    enabled: true
+  example:
+    enabled: false
   switch:
-    enabled: false
+    enabled: true
   merge:
-    enabled: false
+    enabled: true
   wait:
-    enabled: false
+    enabled: true
+  heartbeat:
+    enabled: true
+    config:
+      interval_sec: 300
+  goal_generator:
+    enabled: true
+    config:
+      cooldown_ticks: 6
+  reflex:
+    enabled: true
+    config:
+      min_confidence: 0.7
+  reflex_learner:
+    enabled: true
+    config:
+      cooldown_ticks: 12
+  memory:
+    enabled: true

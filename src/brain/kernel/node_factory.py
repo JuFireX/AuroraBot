@@ -6,8 +6,22 @@ import yaml
 
 from src.brain.kernel.circuit import Circuit
 from src.brain.kernel.base import Node
-from src.brain.nodes.agents import ExampleNode, ExecuteNode, ExpandNode, PlanNode
-from src.brain.nodes.routers import MergeRouter, SwitchRouter, WaitRouter
+from src.brain.nodes.agents import (
+    ExampleNode,
+    ExecuteNode,
+    ExpandNode,
+    GoalGeneratorAgent,
+    PlanNode,
+    ReflexLearnerAgent,
+)
+from src.brain.nodes.routers import (
+    HeartbeatRouter,
+    MemoryAgent,
+    MergeRouter,
+    ReflexRouter,
+    SwitchRouter,
+    WaitRouter,
+)
 from src.config import Config
 from src.utils.log_utils import get_logger
 
@@ -25,13 +39,21 @@ NODE_REGISTRY: dict[str, type[Node]] = {
     "switch": SwitchRouter,
     "merge": MergeRouter,
     "wait": WaitRouter,
+    "heartbeat": HeartbeatRouter,
+    "goal_generator": GoalGeneratorAgent,
+    "reflex": ReflexRouter,
+    "reflex_learner": ReflexLearnerAgent,
+    "memory": MemoryAgent,
 }
 
 # 部分节点构造时需要 host 引用
 NODE_NEEDS_HOST: frozenset[str] = frozenset({"expander", "executor", "example"})
 
 # 部分节点通过 topology.yaml 的 config 块传入参数
-NODE_ACCEPTS_CONFIG: frozenset[str] = frozenset({"switch", "merge", "wait"})
+NODE_ACCEPTS_CONFIG: frozenset[str] = frozenset({
+    "switch", "merge", "wait",
+    "heartbeat", "goal_generator", "reflex", "reflex_learner", "memory",
+})
 
 
 def _load_topology_config() -> dict[str, Any]:

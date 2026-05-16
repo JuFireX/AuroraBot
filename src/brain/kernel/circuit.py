@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import time
 from typing import TYPE_CHECKING
 
-from src.brain.kernel.base import FileUpdate, NodeState
+from src.brain.kernel.base import FileEvent, FileUpdate, NodeState
 from src.brain.kernel.event_bus import FileEventBus
+from src.config import Config
 from src.utils.log_utils import get_logger
 
 if TYPE_CHECKING:
@@ -52,6 +55,9 @@ class Circuit:
 
         dispatch_task = asyncio.create_task(self._bus.dispatch_forever())
         self._bus._dispatch_task = dispatch_task
+
+        # Bootstrap: 创建初始 heartbeat 文件，触发自持振荡回路
+        self._bootstrap_heartbeat()
 
         for node in self._nodes:
             task = asyncio.create_task(node.run())
@@ -101,6 +107,32 @@ class Circuit:
         if self._bus is None:
             raise RuntimeError("电路未启动，无法注入事件")
         self._bus.publish(event)
+
+    def _bootstrap_heartbeat(self) -> None:
+        """创建初始 heartbeat/tick.json 并注入事件，启动自持振荡回路。"""
+        heartbeat_dir = Config.KERNEL_DATA_DIR / "heartbeat"
+        heartbeat_dir.mkdir(parents=True, exist_ok=True)
+        tick_path = heartbeat_dir / "tick.json"
+
+        tick_data = {
+            "tick_id": "bootstrap",
+            "timestamp": time.time(),
+            "interval_sec": 300,
+        }
+        tick_path.write_text(
+            json.dumps(tick_data, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        if self._bus is not None:
+            self._bus.publish(
+                FileEvent(
+                    path="heartbeat/tick.json",
+                    change_type="write",
+                    metadata={"source_node": "circuit_bootstrap"},
+                )
+            )
+        logger.info("Heartbeat 初始脉冲已注入")
 
     async def apply_update(self, update: FileUpdate, node_id: str = "system") -> None:
         """向电路写入一个文件变更并触发下游事件。
