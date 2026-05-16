@@ -7,6 +7,7 @@ import yaml
 from src.brain.kernel.circuit import Circuit
 from src.brain.kernel.base import Node
 from src.brain.nodes.agents import ExampleNode, ExecuteNode, ExpandNode, PlanNode
+from src.brain.nodes.routers import MergeRouter, SwitchRouter, WaitRouter
 from src.config import Config
 from src.utils.log_utils import get_logger
 
@@ -21,10 +22,16 @@ NODE_REGISTRY: dict[str, type[Node]] = {
     "expander": ExpandNode,
     "executor": ExecuteNode,
     "example": ExampleNode,
+    "switch": SwitchRouter,
+    "merge": MergeRouter,
+    "wait": WaitRouter,
 }
 
 # 部分节点构造时需要 host 引用
 NODE_NEEDS_HOST: frozenset[str] = frozenset({"expander", "executor", "example"})
+
+# 部分节点通过 topology.yaml 的 config 块传入参数
+NODE_ACCEPTS_CONFIG: frozenset[str] = frozenset({"switch", "merge", "wait"})
 
 
 def _load_topology_config() -> dict[str, Any]:
@@ -57,7 +64,7 @@ def _default_topology() -> dict[str, Any]:
 
 
 def _normalize(raw_nodes: dict[str, Any]) -> dict[str, Any]:
-    """将 ``{name: {enabled: true}}`` 归一化，未知节点名直接丢弃。"""
+    """将 ``{name: {enabled: true, config: {...}}}`` 归一化，未知节点名直接丢弃。"""
     normalized: dict[str, Any] = {}
     for name, spec in raw_nodes.items():
         if name not in NODE_REGISTRY:
@@ -67,6 +74,7 @@ def _normalize(raw_nodes: dict[str, Any]) -> dict[str, Any]:
             spec = {}
         normalized[name] = {
             "enabled": bool(spec.get("enabled", True)),
+            "config": spec.get("config", {}) if isinstance(spec.get("config"), dict) else {},
         }
     return normalized
 
@@ -97,7 +105,11 @@ def build_circuit(host: ApplicationHost) -> Circuit:  # noqa: F821
             continue
 
         node_cls = NODE_REGISTRY[name]
-        if name in NODE_NEEDS_HOST:
+        node_config = entry.get("config", {})
+
+        if name in NODE_ACCEPTS_CONFIG:
+            node = node_cls(name, **node_config)
+        elif name in NODE_NEEDS_HOST:
             node = node_cls(name, host)
         else:
             node = node_cls(name)

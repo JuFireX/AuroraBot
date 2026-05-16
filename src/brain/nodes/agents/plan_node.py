@@ -1,51 +1,67 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
 from src.brain.kernel.base import (
+    Agent,
     FileDescriptor,
     FilePattern,
     FileUpdate,
-    Node,
     NodeState,
 )
-from src.brain.kernel.state_store import next_record_id
+from src.brain.kernel.state_store import next_record_id, parse_llm_json
 from src.config import Config
 from src.utils.log_utils import get_logger
 from src.utils.time_utils import now_text
 
-logger = get_logger("PlanNode")
+logger = get_logger("PlanAgent")
 
 _DATA_DIR = Config.KERNEL_DATA_DIR
 
+_PLAN_SYSTEM_PROMPT = """\
+你是 AuroraBot 的规划节点。根据外部事件生成结构化的行动计划。
 
-class PlanNode(Node):
-    """从外部事件生成计划的节点。
+你会收到一个 JSON 事件对象，包含 type、source、session_id、summary、payload 等字段。
+
+输出严格 JSON：
+{
+  "goal": "清晰可执行的目标描述",
+  "reasoning": "为什么做出这个规划（一句话）",
+  "priority": 50,
+  "suggested_actions": 1
+}
+
+规则：
+- goal 要具体可执行，不能是泛泛的"处理事件"
+- 用户消息事件：goal 应回应用户意图
+- 系统提醒事件（alarm_reminder、diary_prompt）：判断是否需要行动
+- 无意义或噪音事件：priority 设为 0，goal 说明跳过原因
+- priority 参考：紧急/用户直接相关 80+，普通事件 50，低优先级后台任务 20-，跳过 0
+- suggested_actions：建议展开为几个命令，通常 1-3
+"""
+
+
+class PlanNode(Agent):
+    """从外部事件生成计划的 Agent 节点。
 
     守护 ``inbox/event_*.json`` 文件，当新的外部事件到达时，
-    读取事件内容，生成 plan 记录并写入 ``plans/plan_<id>.json``。
+    调用 LLM 理解事件意图并生成 plan 记录，
+    写入 ``plans/plan_<id>.json``。
 
-    每个事件对应一个独立的 plan 文件，避免多节点并发写入同一文件时的竞态。
-    已处理的 inbox 文件会在计划写入后删除。
-
-    Old → New 对应
-    --------------
-    - 旧 PlanAgent.propose() + step() → execute()
-    - 旧 host.drain_events() → 读取 inbox 文件
-    - 旧 append 到 plans.json → 每个 plan 独立文件
+    LLM 不可用或输出不可解析时回退到机械规划。
+    已处理的 inbox 文件在计划写入后删除。
     """
 
     def __init__(self, node_id: str) -> None:
-        super().__init__(node_id)
+        super().__init__(node_id, system_prompt=_PLAN_SYSTEM_PROMPT)
         self._plans_dir = _DATA_DIR / "plans"
         self._inbox_dir = _DATA_DIR / "inbox"
 
     @property
     def type(self) -> str:
-        return "router"  # 纯数据转换，不调用 LLM
+        return "agent"
 
     @property
     def guards(self) -> list[FilePattern]:
@@ -56,7 +72,7 @@ class PlanNode(Node):
         return [FileDescriptor("plans/plan.json")]
 
     async def execute(self) -> list[FileUpdate]:
-        """扫描 inbox 事件文件，生成 plan 文件。"""
+        """扫描 inbox 事件文件，调用 LLM 生成 plan。"""
         if not self._inbox_dir.exists():
             return []
 
@@ -65,27 +81,29 @@ class PlanNode(Node):
             return []
 
         self._plans_dir.mkdir(parents=True, exist_ok=True)
-
         plan_updates: list[FileUpdate] = []
+
         for event_file in event_files:
             try:
                 event_data = self._read_event(event_file)
                 if event_data is None:
-                    continue
-
-                # 检查是否已有对应的 plan（防重入）
-                event_id = event_data.get("id", "")
-                if not event_id:
-                    continue
-                plan_path = self._plans_dir / f"plan_{event_id}.json"
-                if plan_path.exists():
-                    # 已处理过，清理 inbox 文件
                     self._safe_unlink(event_file)
                     continue
 
-                plan = self._build_plan(event_data)
+                event_id = event_data.get("id", "")
+                if not event_id:
+                    self._safe_unlink(event_file)
+                    continue
 
-                # 写 plan 文件
+                plan_path = self._plans_dir / f"plan_{event_id}.json"
+                if plan_path.exists():
+                    self._safe_unlink(event_file)
+                    continue
+
+                plan = await self._generate_plan(event_data)
+                if plan is None:
+                    continue
+
                 plan_updates.append(
                     FileUpdate(
                         descriptor=FileDescriptor(
@@ -95,25 +113,55 @@ class PlanNode(Node):
                         content=plan,
                     )
                 )
-
-                # 删除已处理的 inbox 文件
                 self._safe_unlink(event_file)
 
-            except Exception:  # noqa: BLE001
-                logger.exception(f"PlanNode 处理事件文件失败: {event_file.name}")
+            except Exception:
+                logger.exception(f"PlanAgent 处理事件文件失败: {event_file.name}")
 
         return plan_updates
 
-    def _read_event(self, path: Path) -> dict[str, Any] | None:
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            return data if isinstance(data, dict) else None
-        except (OSError, json.JSONDecodeError) as exc:
-            logger.warning(f"读取事件文件失败 {path}: {exc}")
-            return None
+    async def _generate_plan(self, event_data: dict[str, Any]) -> dict[str, Any] | None:
+        """调用 LLM 理解事件意图并生成计划。"""
+        event_json = json.dumps(event_data, indent=2, ensure_ascii=False)
+        user_msg = f"事件:\n{event_json}\n\n请为这个事件生成计划。"
+        messages = [{"role": "user", "content": user_msg}]
 
-    def _build_plan(self, event_data: dict[str, Any]) -> dict[str, Any]:
-        """从旧 PlanAgent._build_plan 移植。"""
+        try:
+            raw = await self.think(messages, max_tokens=512)
+        except Exception:
+            logger.exception("PlanAgent LLM 调用失败，回退到机械规划")
+            return self._fallback_plan(event_data)
+
+        parsed = parse_llm_json(raw)
+        if parsed is None:
+            logger.warning(f"PlanAgent LLM 输出不可解析，回退到机械规划: {raw!r}")
+            return self._fallback_plan(event_data)
+
+        return self._build_plan(event_data, parsed)
+
+    def _build_plan(
+        self, event_data: dict[str, Any], llm_output: dict[str, Any]
+    ) -> dict[str, Any]:
+        timestamp = now_text()
+        return {
+            "id": next_record_id("plan"),
+            "source_event_id": event_data.get("id", ""),
+            "source_event_type": str(event_data.get("type", "unknown")),
+            "source": str(event_data.get("source", "")),
+            "session_id": str(event_data.get("session_id", "")),
+            "goal": str(llm_output.get("goal", "")),
+            "reasoning": str(llm_output.get("reasoning", "")),
+            "summary": str(event_data.get("summary", "")),
+            "payload": event_data.get("payload", {}),
+            "status": "pending",
+            "priority": int(llm_output.get("priority", 50)),
+            "suggested_actions": int(llm_output.get("suggested_actions", 1)),
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        }
+
+    def _fallback_plan(self, event_data: dict[str, Any]) -> dict[str, Any]:
+        """LLM 不可用时的机械回退。"""
         timestamp = now_text()
         event_type = str(event_data.get("type", "unknown"))
         summary = str(event_data.get("summary", "") or "")
@@ -124,13 +172,24 @@ class PlanNode(Node):
             "source": str(event_data.get("source", "")),
             "session_id": str(event_data.get("session_id", "")),
             "goal": summary or f"处理事件 {event_type}",
+            "reasoning": "LLM 不可用，使用机械回退",
             "summary": summary,
             "payload": event_data.get("payload", {}),
             "status": "pending",
             "priority": 50,
+            "suggested_actions": 1,
             "created_at": timestamp,
             "updated_at": timestamp,
         }
+
+    @staticmethod
+    def _read_event(path: Path) -> dict[str, Any] | None:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else None
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning(f"读取事件文件失败 {path}: {exc}")
+            return None
 
     @staticmethod
     def _safe_unlink(path: Path) -> None:
@@ -140,6 +199,5 @@ class PlanNode(Node):
             logger.warning(f"删除文件失败 {path}: {exc}")
 
     def on_complete(self) -> None:
-        """执行完后保持 IDLE。"""
         if self.state != NodeState.ERROR:
             self.state = NodeState.IDLE

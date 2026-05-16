@@ -29,8 +29,8 @@ async def run_event_bridge(
 
     本函数是过渡桥梁：
     1. 定期 drain ApplicationHost 事件队列
-    2. 每个事件写入 ``data/kernel/inbox/event_<id>.json``
-    3. 写入自动触发 FileEvent，唤醒下游 PlanNode
+    2. 每个事件写入 ``data/kernel/inbox/event_<type>_<id>.json``
+    3. 写入自动触发 FileEvent，唤醒下游节点
 
     等到所有应用直接写文件后（不再 emit_event），此桥接可以删除。
 
@@ -52,7 +52,9 @@ async def run_event_bridge(
             if events:
                 logger.debug(f"桥接 {len(events)} 个事件到文件总线")
                 for event in events:
-                    file_path = f"inbox/event_{event.id}.json"
+                    # 文件名编码事件类型，允许节点按类型精细化订阅
+                    safe_type = str(event.type).replace(".", "_").replace("/", "_")
+                    file_path = f"inbox/event_{safe_type}_{event.id}.json"
                     update = FileUpdate(
                         descriptor=FileDescriptor(
                             path=file_path,
@@ -64,9 +66,7 @@ async def run_event_bridge(
         except Exception:  # noqa: BLE001
             logger.exception("事件桥接异常")
         try:
-            await asyncio.wait_for(
-                stop_event.wait(), timeout=max(0.05, interval)
-            )
+            await asyncio.wait_for(stop_event.wait(), timeout=max(0.05, interval))
         except asyncio.TimeoutError:
             continue
 
