@@ -67,8 +67,8 @@ class ReflexLearnerAgent(Agent):
 
     def __init__(self, node_id: str, **config: Any) -> None:
         super().__init__(node_id, system_prompt=_LEARNER_SYSTEM_PROMPT)
-        self._plans_dir = _DATA_DIR / "plans"
-        self._actions_dir = _DATA_DIR / "actions"
+        self._plans_done_dir = _DATA_DIR / "plans" / "done"
+        self._results_done_dir = _DATA_DIR / "results" / "done"
         self._rules_path = _DATA_DIR / "reflexes" / "rules.json"
         # 冷却：每 N 个 tick 才学习一次（比 GoalGenerator 更稀疏）
         self._cooldown_ticks = int(config.get("cooldown_ticks", 12))
@@ -104,8 +104,8 @@ class ReflexLearnerAgent(Agent):
         rules_changed = self._mechanical_prune(existing_rules)
 
         # 收集近期记录
-        recent_actions = self._scan_recent(self._actions_dir, "action_*.json", limit=20)
-        recent_plans = self._scan_recent(self._plans_dir, "plan_*.json", limit=20)
+        recent_actions = self._scan_recent(self._results_done_dir, "result_*.json", limit=20)
+        recent_plans = self._scan_recent(self._plans_done_dir, "plan_*.json", limit=20)
 
         if not recent_actions and not recent_plans:
             if rules_changed:

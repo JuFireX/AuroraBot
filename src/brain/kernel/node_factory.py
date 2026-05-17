@@ -15,12 +15,13 @@ from src.brain.nodes.agents import (
     ReflexLearnerAgent,
 )
 from src.brain.nodes.routers import (
+    FanOutRouter,
     HeartbeatRouter,
     MemoryAgent,
     MergeRouter,
     ReflexRouter,
     SwitchRouter,
-    WaitRouter,
+    TerminalRouter,
 )
 from src.config import Config
 from src.utils.log_utils import get_logger
@@ -36,9 +37,10 @@ NODE_REGISTRY: dict[str, type[Node]] = {
     "expander": ExpandAgent,
     "executor": ExecuteAgent,
     "example": ExampleAgent,
+    "fanout": FanOutRouter,
     "switch": SwitchRouter,
+    "terminal": TerminalRouter,
     "merge": MergeRouter,
-    "wait": WaitRouter,
     "heartbeat": HeartbeatRouter,
     "goal_generator": GoalGeneratorAgent,
     "reflex": ReflexRouter,
@@ -58,9 +60,10 @@ NODE_NEEDS_HOST: frozenset[str] = frozenset(
 # 节点构造时是否接收 **config 参数（按 type 判断）
 NODE_ACCEPTS_CONFIG: frozenset[str] = frozenset(
     {
+        "fanout",
         "switch",
+        "terminal",
         "merge",
-        "wait",
         "heartbeat",
         "goal_generator",
         "reflex",

@@ -11,7 +11,7 @@ from src.brain.kernel.base import (
     NodeState,
     Router,
 )
-from src.brain.kernel.state_store import next_record_id
+from src.brain.kernel.state_store import move_to_done, next_record_id
 from src.config import Config
 from src.utils.log_utils import get_logger
 from src.utils.time_utils import now_text
@@ -34,10 +34,14 @@ class ReflexRouter(Router):
 
     纯机械逻辑，零 LLM 调用。
 
-    守护 ``inbox/event_message.received_*.json``。对每条消息
-    读取 ``reflexes/rules.json`` 做规则匹配：
-    - 命中 → 直接写 action 文件 + 删除 inbox（跳过 PlanAgent 全链路）
-    - 未命中 → 返回空，inbox 文件留给 PlanAgent 处理
+    守护 ``fanout/to-reflex/pending/event_*.json`` 和
+    ``reflexes/rules.json``。对每条消息读取 ``reflexes/rules.json``
+    做规则匹配：
+    - 命中 → 直接写 action 到 ``actions/pending/``
+    - 未命中 → 返回空，留给 PlanAgent 全链路
+
+    处理完成的输入文件通过 :func:`move_to_done` 移入 ``done/``
+    子目录（不再直接删除）。
 
     参数在构造时通过 ``**config`` 传入：
     - ``min_confidence``: 最低置信度阈值，默认 0.7
@@ -48,8 +52,7 @@ class ReflexRouter(Router):
         super().__init__(node_id)
         self._min_confidence = float(config.get("min_confidence", 0.7))
         self._rules_path = str(config.get("rules_path", "reflexes/rules.json"))
-        self._inbox_dir = _DATA_DIR / "inbox"
-        self._actions_dir = _DATA_DIR / "actions"
+        self._actions_pending_dir = _DATA_DIR / "actions" / "pending"
 
     @property
     def type(self) -> str:
@@ -59,35 +62,53 @@ class ReflexRouter(Router):
     def guards(self) -> list[FilePattern]:
         if self._config_watch is not None:
             return [FilePattern(p) for p in self._config_watch]
-        return [FilePattern("inbox/event_message.received_*.json")]
+        return [
+            FilePattern("fanout/to-reflex/pending/event_*.json"),
+            FilePattern("reflexes/rules.json"),
+        ]
 
     @property
     def produces(self) -> list[FileDescriptor]:
         if self._config_emit is not None:
             return [FileDescriptor(p) for p in self._config_emit]
-        return [
-            FileDescriptor("actions/action.json"),
-        ]
+        return [FileDescriptor("actions/pending/action.json")]
 
     async def execute(self) -> list[FileUpdate]:
+        """扫描匹配的事件文件，对文本做规则匹配并产出 action。
+
+        处理完成的输入文件通过 :func:`move_to_done` 移入 ``done/``
+        子目录（不再直接 ``unlink``）。
+        """
         rules = self._load_rules()
         if not rules:
             return []
 
-        if not self._inbox_dir.exists():
-            return []
+        # ── 收集事件文件（跳过 rules.json 模式） ────────────────────
+        watch_patterns = self._config_watch or [
+            "fanout/to-reflex/pending/event_*.json",
+            "reflexes/rules.json",
+        ]
+        event_files: list[Path] = []
+        for pattern in watch_patterns:
+            if "rules.json" in pattern:
+                continue
+            guard_path = _DATA_DIR / pattern
+            parent = guard_path.parent
+            pattern_name = guard_path.name
+            if parent.exists():
+                event_files.extend(sorted(parent.glob(pattern_name)))
 
-        event_files = sorted(self._inbox_dir.glob("event_message.received_*.json"))
         if not event_files:
             return []
 
         updates: list[FileUpdate] = []
-        self._actions_dir.mkdir(parents=True, exist_ok=True)
+        self._actions_pending_dir.mkdir(parents=True, exist_ok=True)
 
         for event_file in event_files:
             try:
                 event_data = self._read_event(event_file)
                 if event_data is None:
+                    move_to_done(event_file, event_file.parent / "done")
                     continue
 
                 payload = event_data.get("payload", {})
@@ -95,6 +116,7 @@ class ReflexRouter(Router):
                     payload = {}
                 text = str(payload.get("text", "")).strip()
                 if not text:
+                    move_to_done(event_file, event_file.parent / "done")
                     continue
 
                 match = self._match_rules(text, rules)
@@ -108,15 +130,15 @@ class ReflexRouter(Router):
                 updates.append(
                     FileUpdate(
                         descriptor=FileDescriptor(
-                            path=f"actions/action_{action_id}.json",
+                            path=f"actions/pending/action_{action_id}.json",
                             schema="json",
                         ),
                         content=action,
                     )
                 )
 
-                # 删除 inbox（PlanAgent 不再处理）
-                self._safe_unlink(event_file)
+                # 消费输入
+                move_to_done(event_file, event_file.parent / "done")
 
                 # 更新规则命中计数
                 rule = match["_rule"]
@@ -180,9 +202,7 @@ class ReflexRouter(Router):
             "command": match.get("command_name", "im.polaris.qq.send_qq_message"),
             "kwargs": kwargs,
             "reasoning": match.get("reasoning", ""),
-            "status": "pending",
             "created_at": timestamp,
-            "updated_at": timestamp,
         }
 
     def _load_rules(self) -> list[dict[str, Any]]:
@@ -214,13 +234,6 @@ class ReflexRouter(Router):
             return data if isinstance(data, dict) else None
         except (OSError, json.JSONDecodeError):
             return None
-
-    @staticmethod
-    def _safe_unlink(path: Path) -> None:
-        try:
-            path.unlink(missing_ok=True)
-        except OSError as exc:
-            logger.warning(f"删除文件失败 {path}: {exc}")
 
     def on_complete(self) -> None:
         if self.state != NodeState.ERROR:

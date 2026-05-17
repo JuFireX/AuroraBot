@@ -11,7 +11,7 @@ from src.brain.kernel.base import (
     FileUpdate,
     NodeState,
 )
-from src.brain.kernel.state_store import parse_llm_json
+from src.brain.kernel.state_store import move_to_done, next_record_id, parse_llm_json
 from src.config import Config
 from src.utils.log_utils import get_logger
 from src.utils.time_utils import now_text
@@ -53,17 +53,19 @@ status 取值：
 class ExecuteAgent(Agent):
     """执行 action 并理解结果的 Agent 节点。
 
-    守护 ``actions/action_*.json`` 文件，当新的 pending action 到达时，
-    调用宿主命令执行，将结果交给 LLM 判断状态（done / failed / retry），
-    更新 action 与对应 plan 的状态。
+    守护 ``actions/pending/action_*.json`` 文件，当新的 pending action
+    到达时，调用宿主命令执行，将结果交给 LLM 判断状态
+    （done / failed / retry），写入 ``results/pending/result_<id>.json``。
 
+    处理完成的输入 action 通过 :func:`move_to_done` 移入 ``done/``
+    子目录（文件不可变原则，不再原地修改 status 字段）。
     LLM 不可用时回退到机械判断（无异常 → done）。
     """
 
     def __init__(self, node_id: str, host: ApplicationHost) -> None:  # noqa: F821
         super().__init__(node_id, host, system_prompt=_EXECUTE_SYSTEM_PROMPT)
-        self._actions_dir = _DATA_DIR / "actions"
-        self._plans_dir = _DATA_DIR / "plans"
+        self._actions_pending_dir = _DATA_DIR / "actions" / "pending"
+        self._results_pending_dir = _DATA_DIR / "results" / "pending"
 
     @property
     def type(self) -> str:
@@ -73,38 +75,38 @@ class ExecuteAgent(Agent):
     def guards(self) -> list[FilePattern]:
         if self._config_watch is not None:
             return [FilePattern(p) for p in self._config_watch]
-        return [FilePattern("actions/action_*.json")]
+        return [FilePattern("actions/pending/action_*.json")]
 
     @property
     def produces(self) -> list[FileDescriptor]:
         if self._config_emit is not None:
             return [FileDescriptor(p) for p in self._config_emit]
-        return [
-            FileDescriptor("actions/action.json"),
-            FileDescriptor("plans/plan.json"),
-        ]
+        return [FileDescriptor("results/pending/result.json")]
 
     async def execute(self) -> list[FileUpdate]:
-        """扫描 pending action，执行命令并让 LLM 判断结果。"""
-        if not self._actions_dir.exists():
+        """扫描 actions/pending/ 中的 action，执行命令并产出结果。
+
+        执行结果写入 ``results/pending/result_<action_id>.json``。
+        处理完成的输入 action 通过 :func:`move_to_done` 移入 ``done/``
+        子目录（不再原地修改 status 字段，不再跨文件更新 plan）。
+        """
+        if not self._actions_pending_dir.exists():
             return []
 
         pending_actions = self._scan_pending_actions()
         if not pending_actions:
             return []
 
+        self._results_pending_dir.mkdir(parents=True, exist_ok=True)
         updates: list[FileUpdate] = []
+
         for action_path, action_data in pending_actions:
             try:
                 command_name = str(action_data.get("command", ""))
                 if not command_name:
                     logger.warning(f"action 缺少命令名: {action_path.name}")
+                    move_to_done(action_path, action_path.parent / "done")
                     continue
-
-                # 标记 running
-                action_data["status"] = "running"
-                action_data["updated_at"] = now_text()
-                updates.append(self._make_action_update(action_path, action_data))
 
                 # 执行命令
                 try:
@@ -113,42 +115,56 @@ class ExecuteAgent(Agent):
                         **self._normalize_kwargs(action_data.get("kwargs")),
                     )
                 except Exception as exc:  # noqa: BLE001
-                    # 命令执行本身抛异常 → 直接标记 failed，不调 LLM
-                    action_data["status"] = "failed"
-                    action_data["error"] = str(exc)
-                    action_data["updated_at"] = now_text()
-                    logger.warning(f"命令执行异常: {command_name}, error={exc}")
-                    updates.append(self._make_action_update(action_path, action_data))
-                    plan_update = self._update_plan_status(
-                        str(action_data.get("plan_id", "")), "failed"
+                    # 命令执行抛异常 → 直接判定 failed
+                    result_data = self._build_result(
+                        action_data,
+                        status="failed",
+                        error=str(exc),
+                        result=None,
                     )
-                    if plan_update is not None:
-                        updates.append(plan_update)
+                    result_id = str(result_data["id"])
+                    updates.append(
+                        FileUpdate(
+                            descriptor=FileDescriptor(
+                                path=f"results/pending/result_{result_id}.json",
+                                schema="json",
+                            ),
+                            content=result_data,
+                        )
+                    )
+                    logger.warning(f"命令执行异常: {command_name}, error={exc}")
+                    move_to_done(action_path, action_path.parent / "done")
                     continue
 
                 # 让 LLM 判断结果
                 judgement = await self._judge_result(action_data, result)
-                action_data["status"] = judgement.get("status", "done")
-                action_data["result"] = result
-                action_data["judgement_reasoning"] = judgement.get("reasoning", "")
-                action_data["judgement_next_step"] = judgement.get("next_step")
-                action_data["updated_at"] = now_text()
+                status = str(judgement.get("status", "done"))
+
+                result_data = self._build_result(
+                    action_data,
+                    status=status,
+                    error=None,
+                    result=result,
+                    reasoning=str(judgement.get("reasoning", "")),
+                    next_step=judgement.get("next_step"),
+                )
+                result_id = str(result_data["id"])
+                updates.append(
+                    FileUpdate(
+                        descriptor=FileDescriptor(
+                            path=f"results/pending/result_{result_id}.json",
+                            schema="json",
+                        ),
+                        content=result_data,
+                    )
+                )
 
                 logger.info(
-                    f"命令执行完成: {command_name} → status={action_data['status']}"
+                    f"命令执行完成: {command_name} → status={status}"
                 )
 
-                # 更新对应 plan 状态
-                plan_status = (
-                    "done" if action_data["status"] == "done" else action_data["status"]
-                )
-                plan_update = self._update_plan_status(
-                    str(action_data.get("plan_id", "")), plan_status
-                )
-                if plan_update is not None:
-                    updates.append(plan_update)
-
-                updates.append(self._make_action_update(action_path, action_data))
+                # 消费输入 action
+                move_to_done(action_path, action_path.parent / "done")
 
             except Exception:
                 logger.exception(f"ExecuteAgent 执行 action 失败: {action_path.name}")
@@ -189,6 +205,33 @@ class ExecuteAgent(Agent):
             "next_step": parsed.get("next_step"),
         }
 
+    def _build_result(
+        self,
+        action_data: dict[str, Any],
+        *,
+        status: str,
+        error: str | None = None,
+        result: Any = None,
+        reasoning: str = "",
+        next_step: Any = None,
+    ) -> dict[str, Any]:
+        """构造结果文件内容，不再包含 status 字段的原地修改。"""
+        timestamp = now_text()
+        data: dict[str, Any] = {
+            "id": next_record_id("result"),
+            "action_id": action_data.get("id", ""),
+            "plan_id": action_data.get("plan_id", ""),
+            "command": action_data.get("command", ""),
+            "judgement": status,
+            "reasoning": reasoning,
+            "next_step": next_step,
+            "result": result,
+            "created_at": timestamp,
+        }
+        if error is not None:
+            data["error"] = error
+        return data
+
     @staticmethod
     def _fallback_judgement(result: Any) -> dict[str, Any]:
         """LLM 不可用时的机械判断：命令没抛异常 → done。"""
@@ -201,56 +244,19 @@ class ExecuteAgent(Agent):
     def _scan_pending_actions(
         self,
     ) -> list[tuple[Path, dict[str, Any]]]:
-        """扫描 actions 目录，返回 status == pending 的 action。"""
+        """扫描 actions/pending/ 目录，返回所有 action 文件。
+
+        文件位置（pending/）即表达状态，不再依赖文件的 status 字段。
+        """
         pending: list[tuple[Path, dict[str, Any]]] = []
-        for action_path in sorted(self._actions_dir.glob("action_*.json")):
+        for action_path in sorted(self._actions_pending_dir.glob("action_*.json")):
             try:
                 data = json.loads(action_path.read_text(encoding="utf-8"))
-                if isinstance(data, dict) and data.get("status") == "pending":
+                if isinstance(data, dict):
                     pending.append((action_path, data))
             except (OSError, json.JSONDecodeError) as exc:
                 logger.warning(f"读取 action 文件失败 {action_path.name}: {exc}")
         return pending
-
-    def _make_action_update(
-        self,
-        action_path: Path,
-        action_data: dict[str, Any],
-    ) -> FileUpdate:
-        return FileUpdate(
-            descriptor=FileDescriptor(
-                path=f"actions/{action_path.name}",
-                schema="json",
-            ),
-            content=action_data,
-        )
-
-    def _update_plan_status(
-        self,
-        plan_id: str,
-        status: str,
-    ) -> FileUpdate | None:
-        if not plan_id:
-            return None
-        plan_path = self._plans_dir / f"plan_{plan_id}.json"
-        if not plan_path.exists():
-            return None
-        try:
-            plan_data = json.loads(plan_path.read_text(encoding="utf-8"))
-            if not isinstance(plan_data, dict):
-                return None
-            plan_data["status"] = status
-            plan_data["updated_at"] = now_text()
-            return FileUpdate(
-                descriptor=FileDescriptor(
-                    path=f"plans/{plan_path.name}",
-                    schema="json",
-                ),
-                content=plan_data,
-            )
-        except (OSError, json.JSONDecodeError) as exc:
-            logger.warning(f"更新 plan 状态失败 {plan_path.name}: {exc}")
-            return None
 
     @staticmethod
     def _normalize_kwargs(value: Any) -> dict[str, Any]:

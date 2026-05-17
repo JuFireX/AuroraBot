@@ -36,6 +36,24 @@ def next_record_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
 
+def move_to_done(source: Path, done_dir: Path) -> Path:
+    """将文件从当前目录移动到 done 子目录，自动创建父目录。
+
+    移动后返回目标路径。如果目标文件已存在则覆盖。
+    这是系统内「文件消费」的标准操作——节点处理完输入后调用此函数。
+    """
+    import shutil
+
+    done_dir.mkdir(parents=True, exist_ok=True)
+    target = done_dir / source.name
+    try:
+        source.rename(target)
+    except OSError:
+        shutil.copy2(source, target)
+        source.unlink(missing_ok=True)
+    return target
+
+
 def parse_llm_json(raw: str) -> dict[str, Any] | None:
     """从 LLM 原始输出中提取 JSON 对象。
 

@@ -11,6 +11,7 @@ from src.brain.kernel.base import (
     FileUpdate,
     NodeState,
 )
+from src.brain.kernel.state_store import move_to_done
 from src.config import Config
 from src.utils.log_utils import get_logger
 
@@ -75,12 +76,12 @@ class ExampleAgent(Agent):
             try:
                 event_data = self._read_event(event_file)
                 if event_data is None:
-                    self._safe_unlink(event_file)
+                    move_to_done(event_file, event_file.parent / "done")
                     continue
 
                 ok = await self._handle_event(event_data)
                 if ok:
-                    self._safe_unlink(event_file)
+                    move_to_done(event_file, event_file.parent / "done")
 
             except Exception:  # noqa: BLE001
                 logger.exception(f"ExampleAgent 处理事件文件失败: {event_file.name}")
@@ -146,13 +147,6 @@ class ExampleAgent(Agent):
             return True
 
         return True
-
-    @staticmethod
-    def _safe_unlink(path: Path) -> None:
-        try:
-            path.unlink(missing_ok=True)
-        except OSError as exc:
-            logger.warning(f"删除文件失败 {path}: {exc}")
 
     def on_complete(self) -> None:
         if self.state != NodeState.ERROR:
