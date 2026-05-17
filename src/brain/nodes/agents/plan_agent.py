@@ -11,7 +11,7 @@ from src.brain.kernel.base import (
     FileUpdate,
     NodeState,
 )
-from src.brain.kernel.state_store import next_record_id, parse_llm_json
+from src.brain.kernel.state_store import move_to_done, next_record_id, parse_llm_json
 from src.config import Config
 from src.utils.log_utils import get_logger
 from src.utils.time_utils import now_text
@@ -43,21 +43,21 @@ _PLAN_SYSTEM_PROMPT = """\
 """
 
 
-class PlanNode(Agent):
+class PlanAgent(Agent):
     """从外部事件生成计划的 Agent 节点。
 
     守护 ``inbox/event_*.json`` 文件，当新的外部事件到达时，
     调用 LLM 理解事件意图并生成 plan 记录，
-    写入 ``plans/plan_<id>.json``。
+    写入 ``plans/pending/plan_<id>.json``。
 
     LLM 不可用或输出不可解析时回退到机械规划。
-    已处理的 inbox 文件在计划写入后删除。
+    处理完成的输入文件通过 :func:`move_to_done` 移入 ``done/``
+    子目录（文件不可变原则）。
     """
 
     def __init__(self, node_id: str) -> None:
         super().__init__(node_id, system_prompt=_PLAN_SYSTEM_PROMPT)
-        self._plans_dir = _DATA_DIR / "plans"
-        self._inbox_dir = _DATA_DIR / "inbox"
+        self._plans_pending_dir = _DATA_DIR / "plans" / "pending"
 
     @property
     def type(self) -> str:
@@ -65,39 +65,55 @@ class PlanNode(Agent):
 
     @property
     def guards(self) -> list[FilePattern]:
-        return [FilePattern("inbox/event_*.json")]
+        if self._config_watch is not None:
+            return [FilePattern(p) for p in self._config_watch]
+        return [FilePattern("fanout/to-planner/pending/event_*.json")]
 
     @property
     def produces(self) -> list[FileDescriptor]:
-        return [FileDescriptor("plans/plan.json")]
+        if self._config_emit is not None:
+            return [FileDescriptor(p) for p in self._config_emit]
+        return [FileDescriptor("plans/pending/plan.json")]
 
     async def execute(self) -> list[FileUpdate]:
-        """扫描 inbox 事件文件，调用 LLM 生成 plan。"""
-        if not self._inbox_dir.exists():
+        """扫描 watch 模式匹配的事件文件，调用 LLM 生成 plan。
+
+        处理完成的输入文件通过 :func:`move_to_done` 移入 ``done/``
+        子目录，而不是直接删除（文件不可变原则）。
+        """
+        # ── 收集所有匹配的输入文件 ──────────────────────────────────
+        watch_patterns = self._config_watch or [
+            "fanout/to-planner/pending/event_*.json"
+        ]
+        all_matched: list[Path] = []
+        for pattern in watch_patterns:
+            guard_path = _DATA_DIR / pattern
+            parent = guard_path.parent
+            pattern_name = guard_path.name
+            if parent.exists():
+                all_matched.extend(sorted(parent.glob(pattern_name)))
+
+        if not all_matched:
             return []
 
-        event_files = sorted(self._inbox_dir.glob("event_*.json"))
-        if not event_files:
-            return []
-
-        self._plans_dir.mkdir(parents=True, exist_ok=True)
+        self._plans_pending_dir.mkdir(parents=True, exist_ok=True)
         plan_updates: list[FileUpdate] = []
 
-        for event_file in event_files:
+        for event_file in all_matched:
             try:
                 event_data = self._read_event(event_file)
                 if event_data is None:
-                    self._safe_unlink(event_file)
+                    move_to_done(event_file, event_file.parent / "done")
                     continue
 
                 event_id = event_data.get("id", "")
                 if not event_id:
-                    self._safe_unlink(event_file)
+                    move_to_done(event_file, event_file.parent / "done")
                     continue
 
-                plan_path = self._plans_dir / f"plan_{event_id}.json"
+                plan_path = self._plans_pending_dir / f"plan_{event_id}.json"
                 if plan_path.exists():
-                    self._safe_unlink(event_file)
+                    move_to_done(event_file, event_file.parent / "done")
                     continue
 
                 plan = await self._generate_plan(event_data)
@@ -107,13 +123,13 @@ class PlanNode(Agent):
                 plan_updates.append(
                     FileUpdate(
                         descriptor=FileDescriptor(
-                            path=f"plans/plan_{event_id}.json",
+                            path=f"plans/pending/plan_{event_id}.json",
                             schema="json",
                         ),
                         content=plan,
                     )
                 )
-                self._safe_unlink(event_file)
+                move_to_done(event_file, event_file.parent / "done")
 
             except Exception:
                 logger.exception(f"PlanAgent 处理事件文件失败: {event_file.name}")
@@ -153,11 +169,9 @@ class PlanNode(Agent):
             "reasoning": str(llm_output.get("reasoning", "")),
             "summary": str(event_data.get("summary", "")),
             "payload": event_data.get("payload", {}),
-            "status": "pending",
             "priority": int(llm_output.get("priority", 50)),
             "suggested_actions": int(llm_output.get("suggested_actions", 1)),
             "created_at": timestamp,
-            "updated_at": timestamp,
         }
 
     def _fallback_plan(self, event_data: dict[str, Any]) -> dict[str, Any]:
@@ -175,11 +189,9 @@ class PlanNode(Agent):
             "reasoning": "LLM 不可用，使用机械回退",
             "summary": summary,
             "payload": event_data.get("payload", {}),
-            "status": "pending",
             "priority": 50,
             "suggested_actions": 1,
             "created_at": timestamp,
-            "updated_at": timestamp,
         }
 
     @staticmethod
@@ -190,13 +202,6 @@ class PlanNode(Agent):
         except (OSError, json.JSONDecodeError) as exc:
             logger.warning(f"读取事件文件失败 {path}: {exc}")
             return None
-
-    @staticmethod
-    def _safe_unlink(path: Path) -> None:
-        try:
-            path.unlink(missing_ok=True)
-        except OSError as exc:
-            logger.warning(f"删除文件失败 {path}: {exc}")
 
     def on_complete(self) -> None:
         if self.state != NodeState.ERROR:

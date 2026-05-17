@@ -11,7 +11,7 @@ from src.brain.kernel.base import (
     FileUpdate,
     NodeState,
 )
-from src.brain.kernel.state_store import next_record_id, parse_llm_json
+from src.brain.kernel.state_store import move_to_done, next_record_id, parse_llm_json
 from src.config import Config
 from src.utils.log_utils import get_logger
 from src.utils.time_utils import now_text
@@ -52,21 +52,22 @@ _EXPAND_SYSTEM_PROMPT = """\
 """
 
 
-class ExpandNode(Agent):
+class ExpandAgent(Agent):
     """将 plan 展开为具体 action 的 Agent 节点。
 
-    守护 ``plans/plan_*.json`` 文件，当新的 pending plan 到达时，
-    从宿主获取可用命令列表，调用 LLM 语义匹配命令并构造参数，
-    写入 ``actions/action_<id>.json``。
+    守护 ``plans/pending/plan_*.json`` 文件，当新的 pending plan
+    到达时，从宿主获取可用命令列表，调用 LLM 语义匹配命令并构
+    造参数，写入 ``actions/pending/action_<id>.json``。
 
     支持一个 plan 展开为多个 action。
-    Plan 状态在展开后更新为 ``expanded``。
+    处理完成的输入 plan 通过 :func:`move_to_done` 移入 ``done/``
+    子目录（文件不可变原则，不再原地修改 status 字段）。
     """
 
     def __init__(self, node_id: str, host: ApplicationHost) -> None:  # noqa: F821
         super().__init__(node_id, host, system_prompt=_EXPAND_SYSTEM_PROMPT)
-        self._plans_dir = _DATA_DIR / "plans"
-        self._actions_dir = _DATA_DIR / "actions"
+        self._plans_pending_dir = _DATA_DIR / "plans" / "pending"
+        self._actions_pending_dir = _DATA_DIR / "actions" / "pending"
 
     @property
     def type(self) -> str:
@@ -74,47 +75,42 @@ class ExpandNode(Agent):
 
     @property
     def guards(self) -> list[FilePattern]:
-        return [FilePattern("plans/plan_*.json")]
+        if self._config_watch is not None:
+            return [FilePattern(p) for p in self._config_watch]
+        return [FilePattern("plans/pending/plan_*.json")]
 
     @property
     def produces(self) -> list[FileDescriptor]:
-        return [
-            FileDescriptor("actions/action.json"),
-            FileDescriptor("plans/plan.json"),
-        ]
+        if self._config_emit is not None:
+            return [FileDescriptor(p) for p in self._config_emit]
+        return [FileDescriptor("actions/pending/action.json")]
 
     async def execute(self) -> list[FileUpdate]:
-        """扫描 pending plan，调用 LLM 选择命令并生成 action。"""
+        """扫描 plans/pending/ 中的 plan，调用 LLM 生成 action。
+
+        处理完成的输入 plan 通过 :func:`move_to_done` 移入 ``done/``
+        子目录（不再原地修改 status 字段）。
+        """
         commands = self._host.list_command_specs()
         if not commands:
             return []
 
-        if not self._plans_dir.exists():
+        if not self._plans_pending_dir.exists():
             return []
 
         pending_plans = self._scan_pending_plans()
         if not pending_plans:
             return []
 
-        self._actions_dir.mkdir(parents=True, exist_ok=True)
+        self._actions_pending_dir.mkdir(parents=True, exist_ok=True)
         updates: list[FileUpdate] = []
 
         for plan_path, plan_data in pending_plans:
             try:
                 actions_spec = await self._expand_plan(plan_data, commands)
                 if not actions_spec:
-                    # LLM 认为无需行动，标记 plan 为 skipped
-                    plan_data["status"] = "skipped"
-                    plan_data["updated_at"] = now_text()
-                    updates.append(
-                        FileUpdate(
-                            descriptor=FileDescriptor(
-                                path=f"plans/{plan_path.name}",
-                                schema="json",
-                            ),
-                            content=plan_data,
-                        )
-                    )
+                    # LLM 认为无需行动 → 仅消费输入
+                    move_to_done(plan_path, plan_path.parent / "done")
                     continue
 
                 action_ids: list[str] = []
@@ -125,25 +121,15 @@ class ExpandNode(Agent):
                     updates.append(
                         FileUpdate(
                             descriptor=FileDescriptor(
-                                path=f"actions/action_{action_id}.json",
+                                path=f"actions/pending/action_{action_id}.json",
                                 schema="json",
                             ),
                             content=action,
                         )
                     )
 
-                plan_data["status"] = "expanded"
-                plan_data["updated_at"] = now_text()
-                plan_data["action_ids"] = action_ids
-                updates.append(
-                    FileUpdate(
-                        descriptor=FileDescriptor(
-                            path=f"plans/{plan_path.name}",
-                            schema="json",
-                        ),
-                        content=plan_data,
-                    )
-                )
+                # 消费输入 plan
+                move_to_done(plan_path, plan_path.parent / "done")
 
             except Exception:
                 logger.exception(f"ExpandAgent 展开 plan 失败: {plan_path.name}")
@@ -231,9 +217,7 @@ class ExpandNode(Agent):
             "command": spec["command_name"],
             "kwargs": spec.get("kwargs", {}),
             "reasoning": spec.get("reasoning", ""),
-            "status": "pending",
             "created_at": timestamp,
-            "updated_at": timestamp,
         }
 
     def _fallback_expand(
@@ -257,12 +241,15 @@ class ExpandNode(Agent):
     def _scan_pending_plans(
         self,
     ) -> list[tuple[Path, dict[str, Any]]]:
-        """扫描 plans 目录，返回 status == pending 的 plan。"""
+        """扫描 plans/pending/ 目录，返回所有 plan 文件。
+
+        文件位置（pending/）即表达状态，不再依赖文件的 status 字段。
+        """
         pending: list[tuple[Path, dict[str, Any]]] = []
-        for plan_path in sorted(self._plans_dir.glob("plan_*.json")):
+        for plan_path in sorted(self._plans_pending_dir.glob("plan_*.json")):
             try:
                 data = json.loads(plan_path.read_text(encoding="utf-8"))
-                if isinstance(data, dict) and data.get("status") == "pending":
+                if isinstance(data, dict):
                     pending.append((plan_path, data))
             except (OSError, json.JSONDecodeError) as exc:
                 logger.warning(f"读取 plan 文件失败 {plan_path.name}: {exc}")

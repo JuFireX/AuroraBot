@@ -49,7 +49,7 @@ class GoalGeneratorAgent(Agent):
     （pending plan、最近活动、时段），调用 LLM 判断是否需要
     生成自发目标。绝大多数时候返回 ``action: "none"``。
 
-    生成的目标写入 ``intent/goal_<id>.json``，
+    生成的目标写入 ``intent/pending/goal_<id>.json``，
     被 PlanAgent 的下游流程处理。
 
     冷却机制：两次 LLM 调用之间至少间隔 ``cooldown_ticks`` 个 tick，
@@ -58,8 +58,8 @@ class GoalGeneratorAgent(Agent):
 
     def __init__(self, node_id: str, **config: Any) -> None:
         super().__init__(node_id, system_prompt=_GOAL_SYSTEM_PROMPT)
-        self._intent_dir = _DATA_DIR / "intent"
-        self._plans_dir = _DATA_DIR / "plans"
+        self._intent_pending_dir = _DATA_DIR / "intent" / "pending"
+        self._plans_pending_dir = _DATA_DIR / "plans" / "pending"
         self._heartbeat_dir = _DATA_DIR / "heartbeat"
         # 冷却：每 N 个 tick 才真正调用一次 LLM
         self._cooldown_ticks = int(config.get("cooldown_ticks", 6))
@@ -72,11 +72,15 @@ class GoalGeneratorAgent(Agent):
 
     @property
     def guards(self) -> list[FilePattern]:
+        if self._config_watch is not None:
+            return [FilePattern(p) for p in self._config_watch]
         return [FilePattern("heartbeat/tick.json")]
 
     @property
     def produces(self) -> list[FileDescriptor]:
-        return [FileDescriptor("intent/goal.json")]
+        if self._config_emit is not None:
+            return [FileDescriptor(p) for p in self._config_emit]
+        return [FileDescriptor("intent/pending/goal.json")]
 
     async def execute(self) -> list[FileUpdate]:
         self._tick_count += 1
@@ -119,7 +123,7 @@ class GoalGeneratorAgent(Agent):
 
         priority = min(int(parsed.get("priority", 30)), 50)
 
-        self._intent_dir.mkdir(parents=True, exist_ok=True)
+        self._intent_pending_dir.mkdir(parents=True, exist_ok=True)
         timestamp = now_text()
 
         goal_data = {
@@ -128,11 +132,10 @@ class GoalGeneratorAgent(Agent):
             "reasoning": str(parsed.get("reasoning", "")),
             "priority": priority,
             "source": "goal_generator",
-            "status": "pending",
             "created_at": timestamp,
         }
 
-        goal_path = f"intent/goal_{timestamp}.json"
+        goal_path = f"intent/pending/goal_{timestamp}.json"
         self._last_goal_at = timestamp
 
         logger.info(
@@ -150,22 +153,23 @@ class GoalGeneratorAgent(Agent):
         ]
 
     def _gather_state(self) -> dict[str, Any]:
-        """收集当前系统状态供 LLM 判断。"""
+        """收集当前系统状态供 LLM 判断。
+
+        文件位置（pending/）即表达状态，不再依赖 status 字段。
+        """
         pending_count = 0
         recent_plans: list[dict[str, Any]] = []
-        if self._plans_dir.exists():
+        if self._plans_pending_dir.exists():
             for plan_path in sorted(
-                self._plans_dir.glob("plan_*.json"), reverse=True
+                self._plans_pending_dir.glob("plan_*.json"), reverse=True
             ):
                 try:
                     data = json.loads(plan_path.read_text(encoding="utf-8"))
                     if isinstance(data, dict):
-                        if data.get("status") == "pending":
-                            pending_count += 1
+                        pending_count += 1
                         if len(recent_plans) < 5:
                             recent_plans.append({
                                 "goal": data.get("goal", ""),
-                                "status": data.get("status", ""),
                                 "created_at": data.get("created_at", ""),
                             })
                 except (OSError, json.JSONDecodeError):

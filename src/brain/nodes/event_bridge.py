@@ -24,28 +24,26 @@ async def run_event_bridge(
 ) -> None:
     """将 ApplicationHost 的 AppEvent 桥接到 Circuit 的文件事件。
 
-    迁移期 shim：当前应用通过 ``host.emit_event(AppEvent)`` 上报事件，
-    而新 Circuit/Node 图结构通过文件变更（FileEvent）驱动。
+    App 层通过 ``host.emit_event(AppEvent)`` 上报事件，
+    而 Node 图结构通过文件变更（FileEvent）驱动。
 
-    本函数是过渡桥梁：
+    本桥接层是两者的正式接口：
     1. 定期 drain ApplicationHost 事件队列
     2. 每个事件写入 ``data/kernel/inbox/event_<type>_<id>.json``
     3. 写入自动触发 FileEvent，唤醒下游节点
 
-    等到所有应用直接写文件后（不再 emit_event），此桥接可以删除。
-
     Parameters
     ----------
     host : ApplicationHost
-        旧应用宿主，从中 drain AppEvent。
+        应用宿主，从中 drain AppEvent。
     circuit : Circuit
-        新图结构电路，通过 ``apply_update`` 注入文件变更。
+        Node 图结构电路，通过 ``apply_update`` 注入文件变更。
     stop_event : asyncio.Event
         停止信号，置位时退出循环。
     interval : float
         轮询间隔（秒），默认 0.5。
     """
-    logger.info("事件桥接已启动（迁移期 shim）")
+    logger.info("事件桥接已启动")
     while not stop_event.is_set():
         try:
             events = host.drain_events()
