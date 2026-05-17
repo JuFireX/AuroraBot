@@ -28,6 +28,9 @@ nodes:
   # ── 反射链路（短路径——直接响应） ──────────────
   - id: reflex
     type: reflex
+    watch:
+      - "inbox/event_message.received_*.json"
+      - "reflexes/rules.json"
     config:
       min_confidence: 0.7
 
@@ -39,6 +42,9 @@ nodes:
   # ── 全链路（规划 → 展开 → 执行） ──────────────
   - id: planner
     type: planner
+    watch:
+      - "inbox/event_*.json"
+      - "intent/goal*.json"
 
   - id: priority-switch
     type: switch
