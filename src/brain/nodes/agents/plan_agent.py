@@ -58,7 +58,6 @@ class PlanAgent(Agent):
     def __init__(self, node_id: str) -> None:
         super().__init__(node_id, system_prompt=_PLAN_SYSTEM_PROMPT)
         self._plans_pending_dir = _DATA_DIR / "plans" / "pending"
-        self._inbox_dir = _DATA_DIR / "inbox"
 
     @property
     def type(self) -> str:
@@ -68,7 +67,7 @@ class PlanAgent(Agent):
     def guards(self) -> list[FilePattern]:
         if self._config_watch is not None:
             return [FilePattern(p) for p in self._config_watch]
-        return [FilePattern("inbox/event_*.json")]
+        return [FilePattern("fanout/to-planner/pending/event_*.json")]
 
     @property
     def produces(self) -> list[FileDescriptor]:
@@ -77,22 +76,30 @@ class PlanAgent(Agent):
         return [FileDescriptor("plans/pending/plan.json")]
 
     async def execute(self) -> list[FileUpdate]:
-        """扫描 inbox 事件文件，调用 LLM 生成 plan。
+        """扫描 watch 模式匹配的事件文件，调用 LLM 生成 plan。
 
         处理完成的输入文件通过 :func:`move_to_done` 移入 ``done/``
         子目录，而不是直接删除（文件不可变原则）。
         """
-        if not self._inbox_dir.exists():
-            return []
+        # ── 收集所有匹配的输入文件 ──────────────────────────────────
+        watch_patterns = self._config_watch or [
+            "fanout/to-planner/pending/event_*.json"
+        ]
+        all_matched: list[Path] = []
+        for pattern in watch_patterns:
+            guard_path = _DATA_DIR / pattern
+            parent = guard_path.parent
+            pattern_name = guard_path.name
+            if parent.exists():
+                all_matched.extend(sorted(parent.glob(pattern_name)))
 
-        event_files = sorted(self._inbox_dir.glob("event_*.json"))
-        if not event_files:
+        if not all_matched:
             return []
 
         self._plans_pending_dir.mkdir(parents=True, exist_ok=True)
         plan_updates: list[FileUpdate] = []
 
-        for event_file in event_files:
+        for event_file in all_matched:
             try:
                 event_data = self._read_event(event_file)
                 if event_data is None:

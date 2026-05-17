@@ -121,7 +121,9 @@ class ReflexRouter(Router):
 
                 match = self._match_rules(text, rules)
                 if match is None:
-                    continue  # 未命中，留给 PlanAgent
+                    # 未命中 — fanout 已将副本发给 planner 全链路，此处直接消费
+                    move_to_done(event_file, event_file.parent / "done")
+                    continue
 
                 # 命中 → 直接创建 action
                 action = self._build_action(event_data, match)
