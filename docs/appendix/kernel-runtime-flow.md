@@ -6,6 +6,8 @@ order: 2
 
 # 内核运行时的一些流程图
 
+## 启动流程
+
 ```mermaid
 sequenceDiagram
     participant bot as bot.py
@@ -49,6 +51,8 @@ sequenceDiagram
     end
 ```
 
+## 运行流程
+
 ```mermaid
 graph TB
     subgraph "① App 循环 (run_app_loop)"
@@ -83,6 +87,8 @@ graph TB
     B4 -.->|文件写入触发 FileEvent| C1
     C9 -.->|文件变更 → 下游节点| C1
 ```
+
+## 事件处理流程
 
 ```mermaid
 sequenceDiagram
@@ -133,6 +139,8 @@ sequenceDiagram
     bus->>memory: on_event ✓ (guard: plans/* + actions/*)
     memory->>bus: 写 memory/facts.json
 ```
+
+## 拓扑图
 
 ```mermaid
 graph TB
